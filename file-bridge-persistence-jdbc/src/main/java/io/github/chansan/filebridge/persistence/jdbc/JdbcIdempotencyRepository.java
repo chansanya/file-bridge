@@ -12,10 +12,25 @@ import org.springframework.jdbc.core.namedparam.*;
 public final class JdbcIdempotencyRepository implements IdempotencyRepository {
   private final NamedParameterJdbcTemplate jdbc;
 
+  /**
+   * 创建幂等记录仓储。
+   *
+   * @param jdbc 具名参数 JDBC 模板
+   */
   public JdbcIdempotencyRepository(NamedParameterJdbcTemplate jdbc) {
     this.jdbc = jdbc;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param t 租户 ID
+   * @param o 用户 ID
+   * @param op 操作类型
+   * @param key 客户端幂等键
+   * @param hash 当前请求指纹
+   * @return 已保存的响应值，不存在时返回空
+   */
   @Override
   public Optional<String> findResponse(String t, String o, String op, String key, String hash) {
     List<Map<String, Object>> rows =
@@ -32,6 +47,17 @@ public final class JdbcIdempotencyRepository implements IdempotencyRepository {
     return Optional.of((String) rows.get(0).get("response_value"));
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param t 租户 ID
+   * @param o 用户 ID
+   * @param op 操作类型
+   * @param key 客户端幂等键
+   * @param hash 请求指纹
+   * @param response 可恢复业务结果的紧凑响应值
+   * @param expires 记录过期时间
+   */
   @Override
   public void save(
       String t, String o, String op, String key, String hash, String response, Instant expires) {

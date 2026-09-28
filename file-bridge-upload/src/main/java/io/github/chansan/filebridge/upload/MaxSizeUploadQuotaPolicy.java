@@ -8,11 +8,22 @@ import io.github.chansan.filebridge.core.spi.UploadQuotaPolicy;
 public final class MaxSizeUploadQuotaPolicy implements UploadQuotaPolicy {
   private final long maxBytes;
 
+  /**
+   * 创建最大字节数配额策略。
+   *
+   * @param maxBytes 允许的最大字节数
+   */
   public MaxSizeUploadQuotaPolicy(long maxBytes) {
     if (maxBytes < 0) throw new IllegalArgumentException("maxBytes must not be negative");
     this.maxBytes = maxBytes;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param actor 当前可信身份
+   * @param expectedSize 文件预期字节数
+   */
   @Override
   public void check(Actor actor, long expectedSize) {
     if (expectedSize < 0)

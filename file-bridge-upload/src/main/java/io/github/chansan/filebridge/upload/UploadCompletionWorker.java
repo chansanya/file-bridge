@@ -18,6 +18,16 @@ public final class UploadCompletionWorker {
   private final String workerId;
   private final Duration lease;
 
+  /**
+   * 创建上传完成工作器。
+   *
+   * @param uploads 上传任务仓储
+   * @param files 文件仓储
+   * @param storages 存储注册表
+   * @param tx 事务执行器
+   * @param workerId 工作器标识
+   * @param lease 完成租约时长
+   */
   public UploadCompletionWorker(
       UploadRepository uploads,
       FileRepository files,
@@ -33,6 +43,12 @@ public final class UploadCompletionWorker {
     this.lease = lease;
   }
 
+  /**
+   * 执行一轮待完成上传任务处理。
+   *
+   * @param limit 单轮最大拉取数量
+   * @return 成功完成的任务数量
+   */
   public int runOnce(int limit) {
     int done = 0;
     for (UploadTask t : uploads.findCompletableOrExpiredLeases(Instant.now(), limit)) {
@@ -41,6 +57,12 @@ public final class UploadCompletionWorker {
     return done;
   }
 
+  /**
+   * 竞争租约并处理单个上传任务。
+   *
+   * @param snapshot 待处理任务快照
+   * @return 当前工作器成功完成任务时返回 {@code true}
+   */
   public boolean process(UploadTask snapshot) {
     Instant now = Instant.now();
     // 数据库条件更新是多实例之间唯一的完成权仲裁，不能依赖进程内锁。
@@ -110,6 +132,13 @@ public final class UploadCompletionWorker {
     }
   }
 
+  /**
+   * 流式读取最终对象并校验摘要。
+   *
+   * @param p 目标存储适配器
+   * @param l 最终对象定位信息
+   * @return 实际大小和 SHA-256
+   */
   private static Verified verify(StorageProvider p, ObjectLocation l) {
     try (InputStream in = p.open(l)) {
       MessageDigest d = MessageDigest.getInstance("SHA-256");
@@ -129,5 +158,11 @@ public final class UploadCompletionWorker {
     }
   }
 
+  /**
+   * 最终对象校验结果。
+   *
+   * @param size 实际字节数
+   * @param sha 实际内容 SHA-256
+   */
   private record Verified(long size, String sha) {}
 }

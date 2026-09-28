@@ -19,6 +19,13 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
   private final Path root;
   private final Path temporaryRoot;
 
+  /**
+   * 创建本地存储适配器。
+   *
+   * @param storageId 存储实例 ID
+   * @param root 可见对象根路径
+   * @param temporaryRoot 临时文件根路径
+   */
   public LocalStorageProvider(String storageId, Path root, Path temporaryRoot) {
     this.storageId = requireText(storageId, "storageId");
     this.root = normalize(root, "root");
@@ -33,16 +40,33 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     }
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @return 存储实例 ID
+   */
   @Override
   public String storageId() {
     return storageId;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @return 本地存储能力和分片限制
+   */
   @Override
   public StorageCapabilities capabilities() {
     return StorageCapabilities.multipart(1, 5L * 1024 * 1024 * 1024, 10_000, false);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param request 服务端生成的对象路径、预期大小和内容类型
+   * @param input 对象内容输入流
+   * @return 已落盘对象元数据
+   */
   @Override
   public StoredObject write(ObjectWriteRequest request, InputStream input) {
     Objects.requireNonNull(request, "request");
@@ -68,6 +92,12 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     }
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param location 可信的对象定位信息
+   * @return 对象输入流，调用方必须关闭
+   */
   @Override
   public InputStream open(ObjectLocation location) {
     requireLocation(location);
@@ -81,6 +111,12 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     }
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param location 可信的对象定位信息
+   * @return 对象存在时返回元数据，否则返回空
+   */
   @Override
   public Optional<StoredObject> stat(ObjectLocation location) {
     requireLocation(location);
@@ -99,6 +135,11 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     }
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param location 可信的对象定位信息
+   */
   @Override
   public void delete(ObjectLocation location) {
     requireLocation(location);
@@ -109,6 +150,13 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     }
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param objectKey 服务端生成的对象路径
+   * @param contentType 对象内容类型
+   * @return 平台上传句柄
+   */
   @Override
   public MultipartUploadHandle initiateMultipart(String objectKey, String contentType) {
     resolve(root, objectKey);
@@ -121,6 +169,15 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     return new MultipartUploadHandle(uploadId, objectKey);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param handle 平台上传句柄
+   * @param partNumber 分片序号
+   * @param contentLength 分片预期字节数
+   * @param input 分片内容输入流
+   * @return 本地确认的分片信息
+   */
   @Override
   public UploadedPart uploadPart(
       MultipartUploadHandle handle, int partNumber, long contentLength, InputStream input) {
@@ -162,6 +219,12 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     }
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param handle 平台上传句柄
+   * @return 已存储分片，按序号升序排列
+   */
   @Override
   public List<UploadedPart> listParts(MultipartUploadHandle handle) {
     requireHandle(handle);
@@ -178,6 +241,14 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     }
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param handle 平台上传句柄
+   * @param expectedParts 请求完成时确认的分片集合
+   * @param contentType 对象内容类型
+   * @return 合并后的对象元数据
+   */
   @Override
   public StoredObject completeMultipart(
       MultipartUploadHandle handle, List<UploadedPart> expectedParts, String contentType) {
@@ -234,12 +305,24 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     }
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param handle 平台上传句柄
+   */
   @Override
   public void abortMultipart(MultipartUploadHandle handle) {
     requireHandle(handle);
     deleteTree(multipartDirectory(handle.providerUploadId()));
   }
 
+  /**
+   * 读取本地分片元数据。
+   *
+   * @param parts 分片目录
+   * @param metadata 元数据文件路径
+   * @return 已存储分片信息
+   */
   private UploadedPart readPartMetadata(Path parts, Path metadata) {
     try {
       String name = metadata.getFileName().toString();
@@ -255,6 +338,13 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     }
   }
 
+  /**
+   * 加载属性文件。
+   *
+   * @param path 属性文件路径
+   * @return 已加载属性
+   * @throws IOException 文件读取失败
+   */
   private static Properties loadProperties(Path path) throws IOException {
     Properties p = new Properties();
     try (InputStream in = Files.newInputStream(path)) {
@@ -263,15 +353,35 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     return p;
   }
 
+  /**
+   * 定位分片上传临时目录。
+   *
+   * @param id 平台上传 ID
+   * @return 安全归一化后的目录路径
+   */
   private Path multipartDirectory(String id) {
     return resolve(temporaryRoot.resolve("multipart"), id);
   }
 
+  /**
+   * 归一化并校验目录路径。
+   *
+   * @param path 原始目录路径
+   * @param name 参数名称
+   * @return 绝对归一化目录路径
+   */
   private static Path normalize(Path path, String name) {
     if (path == null) throw new IllegalArgumentException(name + " must not be null");
     return path.toAbsolutePath().normalize();
   }
 
+  /**
+   * 安全解析对象路径并阻断路径穿越。
+   *
+   * @param base 根路径
+   * @param key 对象路径
+   * @return 仍位于根路径内的目标路径
+   */
   private static Path resolve(Path base, String key) {
     if (key == null || key.isBlank() || key.indexOf('\0') >= 0)
       throw new IllegalArgumentException("invalid object key");
@@ -283,11 +393,21 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     return p;
   }
 
+  /**
+   * 校验对象定位信息归属。
+   *
+   * @param location 待校验定位信息
+   */
   private void requireLocation(ObjectLocation location) {
     if (location == null || !storageId.equals(location.storageId()))
       throw new IllegalArgumentException("location belongs to another storage");
   }
 
+  /**
+   * 校验分片上传句柄有效性。
+   *
+   * @param h 待校验上传句柄
+   */
   private void requireHandle(MultipartUploadHandle h) {
     if (h == null
         || h.providerUploadId() == null
@@ -296,11 +416,27 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
       throw new IllegalArgumentException("invalid multipart handle");
   }
 
+  /**
+   * 校验文本字段并返回原始值。
+   *
+   * @param v 待校验文本
+   * @param n 参数名称
+   * @return 非空白的文本值
+   */
   private static String requireText(String v, String n) {
     if (v == null || v.isBlank()) throw new IllegalArgumentException(n + " must not be blank");
     return v;
   }
 
+  /**
+   * 流式复制内容并计算大小与摘要。
+   *
+   * @param input 内容输入流
+   * @param path 临时目标文件
+   * @param expected 预期字节数，可为空
+   * @return 实际大小和 SHA-256
+   * @throws IOException 文件读写失败
+   */
   private static DigestResult copyWithDigest(InputStream input, Path path, Long expected)
       throws IOException {
     MessageDigest digest = sha256();
@@ -327,6 +463,11 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     return new DigestResult(total, HexFormat.of().formatHex(digest.digest()));
   }
 
+  /**
+   * 创建 SHA-256 摘要器。
+   *
+   * @return SHA-256 摘要器
+   */
   private static MessageDigest sha256() {
     try {
       return MessageDigest.getInstance("SHA-256");
@@ -335,6 +476,13 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     }
   }
 
+  /**
+   * 优先执行原子移动。
+   *
+   * @param from 来源文件
+   * @param to 目标文件
+   * @throws IOException 文件移动失败
+   */
   private static void moveAtomically(Path from, Path to) throws IOException {
     try {
       Files.move(from, to, ATOMIC_MOVE);
@@ -343,6 +491,11 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     }
   }
 
+  /**
+   * 静默删除单个文件或空目录。
+   *
+   * @param p 待删除路径
+   */
   private static void deleteQuietly(Path p) {
     try {
       Files.deleteIfExists(p);
@@ -350,6 +503,11 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     }
   }
 
+  /**
+   * 递归删除目录树。
+   *
+   * @param root 待删除根目录
+   */
   private static void deleteTree(Path root) {
     if (!Files.exists(root)) return;
     try (Stream<Path> s = Files.walk(root)) {
@@ -359,13 +517,32 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     }
   }
 
+  /**
+   * 创建存储失败异常。
+   *
+   * @param m 可读错误信息
+   * @param e 原始异常
+   * @return 领域异常
+   */
   private static FileBridgeException storageFailure(String m, Throwable e) {
     return new FileBridgeException(FileBridgeErrorCode.STORAGE_FAILURE, m, e);
   }
 
+  /**
+   * 创建无效分片异常。
+   *
+   * @param m 可读错误信息
+   * @return 领域异常
+   */
   private static FileBridgeException invalidPart(String m) {
     return new FileBridgeException(FileBridgeErrorCode.INVALID_PART, m);
   }
 
+  /**
+   * 流式复制结果。
+   *
+   * @param size 实际写入字节数
+   * @param sha256 实际内容 SHA-256
+   */
   private record DigestResult(long size, String sha256) {}
 }

@@ -11,6 +11,13 @@ public final class DefaultObjectKeyGenerator implements ObjectKeyGenerator {
   private static final DateTimeFormatter DATE =
       DateTimeFormatter.ofPattern("uuuu/MM/dd").withZone(ZoneOffset.UTC);
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param actor 当前可信身份
+   * @param originalName 原始文件名
+   * @return UTC 日期和随机 UUID 组成的对象路径
+   */
   @Override
   public String generate(Actor actor, String originalName) {
     return DATE.format(Instant.now()) + "/" + UUID.randomUUID();

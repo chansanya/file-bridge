@@ -15,6 +15,16 @@ import org.springframework.scheduling.annotation.*;
 @EnableScheduling
 @ConditionalOnProperty(prefix = "file-bridge", name = "enabled", matchIfMissing = true)
 public class FileBridgeJobConfiguration {
+  /**
+   * 创建上传完成工作器。
+   *
+   * @param u 上传任务仓储
+   * @param f 文件仓储
+   * @param s 存储注册表
+   * @param t 事务执行器
+   * @param p FileBridge 配置属性
+   * @return 上传完成工作器
+   */
   @Bean
   @ConditionalOnBean({
     UploadRepository.class,
@@ -32,6 +42,14 @@ public class FileBridgeJobConfiguration {
         u, f, s, t, UUID.randomUUID().toString(), p.getUpload().getLeaseDuration());
   }
 
+  /**
+   * 创建后台任务运行器。
+   *
+   * @param w 上传完成工作器，可为空
+   * @param c 清理服务，可为空
+   * @param r 对账服务，可为空
+   * @return 后台任务运行器
+   */
   @Bean
   JobRunner fileBridgeJobRunner(
       org.springframework.beans.factory.ObjectProvider<UploadCompletionWorker> w,
@@ -45,17 +63,26 @@ public class FileBridgeJobConfiguration {
     private final CleanupService cleanup;
     private final ReconciliationService reconciliation;
 
+    /**
+     * 创建后台任务运行器。
+     *
+     * @param w 上传完成工作器，可为空
+     * @param c 清理服务，可为空
+     * @param r 对账服务，可为空
+     */
     JobRunner(UploadCompletionWorker w, CleanupService c, ReconciliationService r) {
       worker = w;
       cleanup = c;
       reconciliation = r;
     }
 
+    /** 执行一轮上传完成处理。 */
     @Scheduled(fixedDelayString = "${file-bridge.worker.interval:5s}")
     public void complete() {
       if (worker != null) worker.runOnce(10);
     }
 
+    /** 执行一轮过期任务和无引用对象清理。 */
     @Scheduled(fixedDelayString = "${file-bridge.cleanup.interval:30m}")
     public void clean() {
       if (cleanup != null) {
@@ -64,6 +91,7 @@ public class FileBridgeJobConfiguration {
       }
     }
 
+    /** 执行一轮对象状态对账。 */
     @Scheduled(fixedDelayString = "${file-bridge.reconciliation.interval:15m}")
     public void reconcile() {
       if (reconciliation != null) reconciliation.reconcile(100);

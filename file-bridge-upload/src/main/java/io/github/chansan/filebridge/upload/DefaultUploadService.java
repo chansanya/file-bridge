@@ -27,6 +27,25 @@ public final class DefaultUploadService implements UploadService {
   private final Duration leaseDuration;
   private final String workerId;
 
+  /**
+   * 创建默认分片上传服务。
+   *
+   * @param uploads 上传任务仓储
+   * @param files 文件仓储
+   * @param idempotency 幂等记录仓储
+   * @param tx 事务执行器
+   * @param storages 存储注册表
+   * @param defaultStorage 默认存储实例 ID
+   * @param actors 当前可信身份提供器
+   * @param policy 文件访问策略
+   * @param quota 上传配额策略
+   * @param keys 对象路径生成器
+   * @param scope 秒传授权范围
+   * @param preferredPartSize 推荐分片字节数
+   * @param taskTtl 任务保留时长
+   * @param leaseDuration 完成租约时长
+   * @param workerId 工作器标识
+   */
   public DefaultUploadService(
       UploadRepository uploads,
       FileRepository files,
@@ -60,6 +79,12 @@ public final class DefaultUploadService implements UploadService {
     this.workerId = workerId;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param c 上传初始化命令
+   * @return 秒传或分片上传初始化结果
+   */
   @Override
   public UploadInitialization initialize(InitializeUploadCommand c) {
     // 初始化阶段统一完成身份、权限、配额和幂等校验。
@@ -183,6 +208,16 @@ public final class DefaultUploadService implements UploadService {
     return UploadInitialization.upload(id, partSize, total, task.expiresAt());
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 上传任务 ID
+   * @param number 分片序号
+   * @param length 分片预期字节数
+   * @param claimedSha 客户端声明的分片摘要，可为空
+   * @param input 分片内容输入流
+   * @return 已保存分片记录
+   */
   @Override
   public UploadPart uploadPart(
       UUID id, int number, Long length, String claimedSha, InputStream input) {
@@ -218,12 +253,24 @@ public final class DefaultUploadService implements UploadService {
     return saved;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 上传任务 ID
+   * @return 上传任务状态
+   */
   @Override
   public UploadStatusView get(UUID id) {
     UploadTask t = requireAccessible(id);
     return view(t);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 上传任务 ID
+   * @return 触发完成处理后的任务状态
+   */
   @Override
   public UploadStatusView requestCompletion(UUID id) {
     UploadTask t = requireAccessible(id);
@@ -239,6 +286,11 @@ public final class DefaultUploadService implements UploadService {
     return view(uploads.findTask(id).orElse(t));
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 上传任务 ID
+   */
   @Override
   public void cancel(UUID id) {
     UploadTask t = requireAccessible(id);
@@ -247,6 +299,12 @@ public final class DefaultUploadService implements UploadService {
       asMultipart(t).abortMultipart(new MultipartUploadHandle(t.providerUploadId(), t.objectKey()));
   }
 
+  /**
+   * 校验访问权限并加载上传任务。
+   *
+   * @param id 上传任务 ID
+   * @return 当前用户可访问的上传任务
+   */
   private UploadTask requireAccessible(UUID id) {
     UploadTask t =
         uploads
@@ -259,6 +317,11 @@ public final class DefaultUploadService implements UploadService {
     return t;
   }
 
+  /**
+   * 校验任务未过期且处于可继续上传状态。
+   *
+   * @param t 上传任务
+   */
   private void ensureActive(UploadTask t) {
     if (t.expiresAt().isBefore(Instant.now()))
       throw new FileBridgeException(FileBridgeErrorCode.UPLOAD_EXPIRED, "Upload expired");
@@ -268,6 +331,12 @@ public final class DefaultUploadService implements UploadService {
           "Operation is not allowed in state " + t.status());
   }
 
+  /**
+   * 加载任务目标存储并确认分片能力。
+   *
+   * @param t 上传任务
+   * @return 分片存储适配器
+   */
   private MultipartStorageProvider asMultipart(UploadTask t) {
     StorageProvider p = storages.require(t.storageId());
     if (p instanceof MultipartStorageProvider m) return m;
@@ -275,6 +344,13 @@ public final class DefaultUploadService implements UploadService {
         FileBridgeErrorCode.CAPABILITY_NOT_SUPPORTED, "Storage does not support multipart uploads");
   }
 
+  /**
+   * 校验分片序号和声明长度。
+   *
+   * @param t 上传任务
+   * @param n 分片序号
+   * @param len 客户端声明的分片字节数
+   */
   private static void validatePart(UploadTask t, int n, Long len) {
     if (n < 1 || n > t.totalParts())
       throw new FileBridgeException(
@@ -286,6 +362,12 @@ public final class DefaultUploadService implements UploadService {
           FileBridgeErrorCode.INVALID_PART, "Part length does not match expected length");
   }
 
+  /**
+   * 组装对外上传状态视图。
+   *
+   * @param t 上传任务
+   * @return 上传任务状态视图
+   */
   private UploadStatusView view(UploadTask t) {
     return new UploadStatusView(
         t.id(),
@@ -298,6 +380,12 @@ public final class DefaultUploadService implements UploadService {
         t.expiresAt());
   }
 
+  /**
+   * 解析幂等响应为初始化结果。
+   *
+   * @param value 已保存的紧凑响应值
+   * @return 秒传或分片上传初始化结果
+   */
   private UploadInitialization decode(String value) {
     String[] p = value.split(":", 2);
     UUID id = UUID.fromString(p[1]);
@@ -313,6 +401,12 @@ public final class DefaultUploadService implements UploadService {
     return UploadInitialization.upload(t.id(), t.partSize(), t.totalParts(), t.expiresAt());
   }
 
+  /**
+   * 计算上传初始化幂等指纹。
+   *
+   * @param c 上传初始化命令
+   * @return SHA-256 指纹
+   */
   private static String fingerprint(InitializeUploadCommand c) {
     String value =
         String.join(
@@ -333,10 +427,22 @@ public final class DefaultUploadService implements UploadService {
     }
   }
 
+  /**
+   * 归一化可空 SHA-256。
+   *
+   * @param s 客户端声明摘要
+   * @return 小写十六进制摘要，空输入返回 {@code null}
+   */
   private static String normalizeNullableSha(String s) {
     return hasText(s) ? normalizeSha(s) : null;
   }
 
+  /**
+   * 归一化并校验 SHA-256。
+   *
+   * @param s 声明摘要
+   * @return 小写十六进制摘要
+   */
   private static String normalizeSha(String s) {
     String v = s.toLowerCase(Locale.ROOT);
     if (!v.matches("[0-9a-f]{64}"))
@@ -345,6 +451,12 @@ public final class DefaultUploadService implements UploadService {
     return v;
   }
 
+  /**
+   * 判断文本是否包含非空白内容。
+   *
+   * @param s 待判断文本
+   * @return 非空且包含非空白字符时返回 {@code true}
+   */
   private static boolean hasText(String s) {
     return s != null && !s.isBlank();
   }

@@ -5,6 +5,14 @@ import java.util.Locale;
 
 /** 基于有限文件头的轻量内容类型检测器。 */
 public final class DefaultContentTypeDetector implements ContentTypeDetector {
+  /**
+   * {@inheritDoc}
+   *
+   * @param p 有限文件头字节
+   * @param name 辅助识别的原始文件名
+   * @param declared 客户端声明的内容类型
+   * @return 归一化后的内容类型
+   */
   @Override
   public String detect(byte[] p, String name, String declared) {
     if (p.length >= 4 && p[0] == (byte) 0x89 && p[1] == 0x50 && p[2] == 0x4e && p[3] == 0x47)

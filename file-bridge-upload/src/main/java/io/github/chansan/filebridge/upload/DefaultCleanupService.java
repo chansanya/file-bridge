@@ -13,6 +13,14 @@ public final class DefaultCleanupService implements CleanupService {
   private final StorageRegistry storages;
   private final Duration retention;
 
+  /**
+   * 创建默认清理服务。
+   *
+   * @param uploads 上传任务仓储
+   * @param files 文件仓储
+   * @param storages 存储注册表
+   * @param retention 无引用对象保留时长
+   */
   public DefaultCleanupService(
       UploadRepository uploads,
       FileRepository files,
@@ -24,6 +32,12 @@ public final class DefaultCleanupService implements CleanupService {
     this.retention = retention;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param limit 单轮最大处理数量
+   * @return 实际清理的任务数
+   */
   @Override
   public int cleanExpiredUploads(int limit) {
     int count = 0;
@@ -38,6 +52,12 @@ public final class DefaultCleanupService implements CleanupService {
     return count;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param limit 单轮最大处理数量
+   * @return 实际删除的对象数
+   */
   @Override
   public int cleanUnreferencedObjects(int limit) {
     int count = 0;

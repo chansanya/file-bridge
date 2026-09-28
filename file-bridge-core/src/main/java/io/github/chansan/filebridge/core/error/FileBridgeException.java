@@ -28,6 +28,8 @@ public class FileBridgeException extends RuntimeException {
   }
 
   /**
+   * 获取稳定业务错误码。
+   *
    * @return 稳定业务错误码
    */
   public FileBridgeErrorCode code() {

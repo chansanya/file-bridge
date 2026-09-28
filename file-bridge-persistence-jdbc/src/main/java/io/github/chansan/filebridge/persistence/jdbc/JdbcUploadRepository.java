@@ -14,10 +14,21 @@ import org.springframework.jdbc.core.namedparam.*;
 public final class JdbcUploadRepository implements UploadRepository {
   private final NamedParameterJdbcTemplate jdbc;
 
+  /**
+   * 创建上传任务仓储。
+   *
+   * @param jdbc 具名参数 JDBC 模板
+   */
   public JdbcUploadRepository(NamedParameterJdbcTemplate jdbc) {
     this.jdbc = jdbc;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param t 待保存任务
+   * @return 已保存任务
+   */
   @Override
   public UploadTask insertTask(UploadTask t) {
     jdbc.update(
@@ -28,6 +39,12 @@ public final class JdbcUploadRepository implements UploadRepository {
     return t;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 上传任务 ID
+   * @return 上传任务，不存在时返回空
+   */
   @Override
   public Optional<UploadTask> findTask(UUID id) {
     return jdbc
@@ -36,6 +53,12 @@ public final class JdbcUploadRepository implements UploadRepository {
         .findFirst();
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 上传任务 ID
+   * @return 已确认成功的分片，按序号升序排列
+   */
   @Override
   public List<UploadPart> findCompletedParts(UUID id) {
     return jdbc.query(
@@ -45,6 +68,12 @@ public final class JdbcUploadRepository implements UploadRepository {
         PART);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param p 已确认的分片
+   * @return 保存后的分片记录
+   */
   @Override
   public UploadPart saveCompletedPart(UploadPart p) {
     try {
@@ -82,6 +111,14 @@ public final class JdbcUploadRepository implements UploadRepository {
     }
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 上传任务 ID
+   * @param version 预期乐观锁版本
+   * @param now 当前时间
+   * @return 条件匹配并成功更新时返回 {@code true}
+   */
   @Override
   public boolean markUploading(UUID id, long version, Instant now) {
     return jdbc.update(
@@ -91,7 +128,17 @@ public final class JdbcUploadRepository implements UploadRepository {
         == 1;
   }
 
-  // 条件更新同时校验状态和租约时间，避免多个实例并发完成同一任务。
+  /**
+   * {@inheritDoc}
+   *
+   * <p>条件更新同时校验状态和租约时间，避免多个实例并发完成同一任务。
+   *
+   * @param id 上传任务 ID
+   * @param owner 租约持有者
+   * @param until 租约截止时间
+   * @param now 当前时间
+   * @return 当前执行者成功持有租约时返回 {@code true}
+   */
   @Override
   public boolean acquireCompletionLease(UUID id, String owner, Instant until, Instant now) {
     return jdbc.update(
@@ -103,6 +150,14 @@ public final class JdbcUploadRepository implements UploadRepository {
         == 1;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 上传任务 ID
+   * @param owner 租约持有者
+   * @param now 当前时间
+   * @return 状态和租约匹配时返回 {@code true}
+   */
   @Override
   public boolean moveToVerifying(UUID id, String owner, Instant now) {
     return jdbc.update(
@@ -112,6 +167,15 @@ public final class JdbcUploadRepository implements UploadRepository {
         == 1;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 上传任务 ID
+   * @param owner 租约持有者
+   * @param fileId 完成后业务文件 ID
+   * @param now 当前时间
+   * @return 成功提交结果时返回 {@code true}
+   */
   @Override
   public boolean complete(UUID id, String owner, UUID fileId, Instant now) {
     return jdbc.update(
@@ -122,6 +186,13 @@ public final class JdbcUploadRepository implements UploadRepository {
         == 1;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 上传任务 ID
+   * @param now 当前时间
+   * @return 成功取消时返回 {@code true}
+   */
   @Override
   public boolean cancel(UUID id, Instant now) {
     return jdbc.update(
@@ -132,6 +203,13 @@ public final class JdbcUploadRepository implements UploadRepository {
         == 1;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 上传任务 ID
+   * @param owner 租约持有者
+   * @param now 当前时间
+   */
   @Override
   public void fail(UUID id, String owner, Instant now) {
     jdbc.update(
@@ -141,6 +219,13 @@ public final class JdbcUploadRepository implements UploadRepository {
         Map.of("id", id.toString(), "owner", owner, "now", ts(now)));
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param now 当前时间
+   * @param limit 最大返回数量
+   * @return 可由工作器竞争的任务
+   */
   @Override
   public List<UploadTask> findCompletableOrExpiredLeases(Instant now, int limit) {
     return jdbc.query(
@@ -151,6 +236,13 @@ public final class JdbcUploadRepository implements UploadRepository {
         TASK);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param now 当前时间
+   * @param limit 最大返回数量
+   * @return 待清理任务
+   */
   @Override
   public List<UploadTask> findExpiredTasks(Instant now, int limit) {
     return jdbc.query(
@@ -161,11 +253,23 @@ public final class JdbcUploadRepository implements UploadRepository {
         TASK);
   }
 
+  /**
+   * 校验并返回分页上限。
+   *
+   * @param v 调用方传入的数量上限
+   * @return 合法数量上限
+   */
   private static int safeLimit(int v) {
     if (v < 1 || v > 1000) throw new IllegalArgumentException("limit must be between 1 and 1000");
     return v;
   }
 
+  /**
+   * 构建任务持久化参数。
+   *
+   * @param t 待持久化任务
+   * @return SQL 具名参数
+   */
   private static MapSqlParameterSource params(UploadTask t) {
     return new MapSqlParameterSource()
         .addValue("id", s(t.id()))
@@ -230,19 +334,47 @@ public final class JdbcUploadRepository implements UploadRepository {
               instant(r, "created_at"),
               instant(r, "updated_at"));
 
+  /**
+   * 转换可空 UUID 为字符串。
+   *
+   * @param v UUID 值
+   * @return UUID 字符串，空值时返回 {@code null}
+   */
   private static String s(UUID v) {
     return v == null ? null : v.toString();
   }
 
+  /**
+   * 转换可空时间戳。
+   *
+   * @param v 时间值
+   * @return JDBC 时间戳，空值时返回 {@code null}
+   */
   private static Timestamp ts(Instant v) {
     return v == null ? null : Timestamp.from(v);
   }
 
+  /**
+   * 读取可空 UUID 列。
+   *
+   * @param r 当前行
+   * @param c 列名
+   * @return UUID 值，数据库值为空时返回 {@code null}
+   * @throws SQLException 列读取失败
+   */
   private static UUID uuid(ResultSet r, String c) throws SQLException {
     String v = r.getString(c);
     return v == null ? null : UUID.fromString(v);
   }
 
+  /**
+   * 读取可空时间列。
+   *
+   * @param r 当前行
+   * @param c 列名
+   * @return 时间值，数据库值为空时返回 {@code null}
+   * @throws SQLException 列读取失败
+   */
   private static Instant instant(ResultSet r, String c) throws SQLException {
     Timestamp t = r.getTimestamp(c);
     return t == null ? null : t.toInstant();

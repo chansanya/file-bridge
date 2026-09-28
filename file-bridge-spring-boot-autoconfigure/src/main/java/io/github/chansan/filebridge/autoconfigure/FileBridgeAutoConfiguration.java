@@ -25,6 +25,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 @EnableConfigurationProperties(FileBridgeProperties.class)
 @ConditionalOnProperty(prefix = "file-bridge", name = "enabled", matchIfMissing = true)
 public class FileBridgeAutoConfiguration {
+  /**
+   * 根据配置创建全部启用的存储适配器。
+   *
+   * @param p FileBridge 配置属性
+   * @return 按配置顺序排列的存储适配器
+   */
   @Bean(name = "fileBridgeStorageProviders")
   @ConditionalOnMissingBean(name = "fileBridgeStorageProviders")
   List<StorageProvider> fileBridgeStorageProviders(FileBridgeProperties p) {
@@ -47,6 +53,12 @@ public class FileBridgeAutoConfiguration {
     return values;
   }
 
+  /**
+   * 创建默认存储注册表。
+   *
+   * @param providers 全部存储适配器
+   * @return 存储注册表
+   */
   @Bean
   @ConditionalOnMissingBean
   StorageRegistry storageRegistry(
@@ -54,24 +66,46 @@ public class FileBridgeAutoConfiguration {
     return new DefaultStorageRegistry(providers);
   }
 
+  /**
+   * 创建默认对象路径生成器。
+   *
+   * @return 对象路径生成器
+   */
   @Bean
   @ConditionalOnMissingBean
   ObjectKeyGenerator objectKeyGenerator() {
     return new DefaultObjectKeyGenerator();
   }
 
+  /**
+   * 创建默认内容类型检测器。
+   *
+   * @return 内容类型检测器
+   */
   @Bean
   @ConditionalOnMissingBean
   ContentTypeDetector contentTypeDetector() {
     return new DefaultContentTypeDetector();
   }
 
+  /**
+   * 创建基于配置上限的上传配额策略。
+   *
+   * @param p FileBridge 配置属性
+   * @return 上传配额策略
+   */
   @Bean
   @ConditionalOnMissingBean
   UploadQuotaPolicy uploadQuotaPolicy(FileBridgeProperties p) {
     return new MaxSizeUploadQuotaPolicy(p.getUpload().getMaxFileSize().toBytes());
   }
 
+  /**
+   * 创建 FileBridge 使用的具名参数 JDBC 模板。
+   *
+   * @param d 应用数据源
+   * @return 具名参数 JDBC 模板
+   */
   @Bean
   @ConditionalOnBean(DataSource.class)
   @ConditionalOnMissingBean
@@ -79,6 +113,12 @@ public class FileBridgeAutoConfiguration {
     return new NamedParameterJdbcTemplate(d);
   }
 
+  /**
+   * 创建 JDBC 文件仓储。
+   *
+   * @param j 具名参数 JDBC 模板
+   * @return 文件仓储
+   */
   @Bean
   @ConditionalOnBean(NamedParameterJdbcTemplate.class)
   @ConditionalOnMissingBean
@@ -86,6 +126,12 @@ public class FileBridgeAutoConfiguration {
     return new JdbcFileRepository(j);
   }
 
+  /**
+   * 创建 JDBC 上传任务仓储。
+   *
+   * @param j 具名参数 JDBC 模板
+   * @return 上传任务仓储
+   */
   @Bean
   @ConditionalOnBean(NamedParameterJdbcTemplate.class)
   @ConditionalOnMissingBean
@@ -93,6 +139,12 @@ public class FileBridgeAutoConfiguration {
     return new JdbcUploadRepository(j);
   }
 
+  /**
+   * 创建 JDBC 幂等记录仓储。
+   *
+   * @param j 具名参数 JDBC 模板
+   * @return 幂等记录仓储
+   */
   @Bean
   @ConditionalOnBean(NamedParameterJdbcTemplate.class)
   @ConditionalOnMissingBean
@@ -100,6 +152,12 @@ public class FileBridgeAutoConfiguration {
     return new JdbcIdempotencyRepository(j);
   }
 
+  /**
+   * 创建基于 Spring 事务管理器的必需事务执行器。
+   *
+   * @param t 平台事务管理器
+   * @return 事务执行器
+   */
   @Bean
   @ConditionalOnBean(PlatformTransactionManager.class)
   @ConditionalOnMissingBean
@@ -107,6 +165,21 @@ public class FileBridgeAutoConfiguration {
     return new JdbcTransactionRunner(new TransactionTemplate(t));
   }
 
+  /**
+   * 创建默认文件业务服务。
+   *
+   * @param f 文件仓储
+   * @param i 幂等记录仓储
+   * @param t 事务执行器
+   * @param s 存储注册表
+   * @param p FileBridge 配置属性
+   * @param a 当前可信身份提供器
+   * @param policy 文件访问策略
+   * @param q 上传配额策略
+   * @param k 对象路径生成器
+   * @param c 内容类型检测器
+   * @return 文件业务服务
+   */
   @Bean
   @ConditionalOnBean({
     FileRepository.class,
@@ -130,6 +203,21 @@ public class FileBridgeAutoConfiguration {
     return new DefaultFileService(f, i, t, s, p.getDefaultStorage(), a, policy, q, k, c);
   }
 
+  /**
+   * 创建默认分片上传服务。
+   *
+   * @param u 上传任务仓储
+   * @param f 文件仓储
+   * @param i 幂等记录仓储
+   * @param t 事务执行器
+   * @param s 存储注册表
+   * @param p FileBridge 配置属性
+   * @param a 当前可信身份提供器
+   * @param policy 文件访问策略
+   * @param q 上传配额策略
+   * @param k 对象路径生成器
+   * @return 分片上传服务
+   */
   @Bean
   @ConditionalOnBean({
     UploadRepository.class,
@@ -173,6 +261,15 @@ public class FileBridgeAutoConfiguration {
         UUID.randomUUID().toString());
   }
 
+  /**
+   * 创建默认清理服务。
+   *
+   * @param u 上传任务仓储
+   * @param f 文件仓储
+   * @param s 存储注册表
+   * @param p FileBridge 配置属性
+   * @return 清理服务
+   */
   @Bean
   @ConditionalOnBean({UploadRepository.class, FileRepository.class, StorageRegistry.class})
   @ConditionalOnMissingBean
@@ -181,6 +278,13 @@ public class FileBridgeAutoConfiguration {
     return new DefaultCleanupService(u, f, s, p.getCleanup().getUnreferencedRetention());
   }
 
+  /**
+   * 创建默认对象对账服务。
+   *
+   * @param f 文件仓储
+   * @param s 存储注册表
+   * @return 对账服务
+   */
   @Bean
   @ConditionalOnBean({FileRepository.class, StorageRegistry.class})
   @ConditionalOnMissingBean
@@ -188,6 +292,16 @@ public class FileBridgeAutoConfiguration {
     return new DefaultReconciliationService(f, s);
   }
 
+  /**
+   * 创建应用启动时的配置校验器。
+   *
+   * @param p FileBridge 配置属性
+   * @param r 存储注册表
+   * @param files 可选文件仓储
+   * @param actors 可选当前身份提供器
+   * @param policies 可选文件访问策略
+   * @return 应用启动校验器
+   */
   @Bean
   ApplicationRunner fileBridgeValidation(
       FileBridgeProperties p,
@@ -205,6 +319,14 @@ public class FileBridgeAutoConfiguration {
     };
   }
 
+  /**
+   * 通过可选存储模块反射创建云存储适配器。
+   *
+   * @param type 存储类型
+   * @param id 存储实例 ID
+   * @param s 存储实例配置
+   * @return 云存储适配器
+   */
   private static StorageProvider createOptionalProvider(
       String type, String id, FileBridgeProperties.Storage s) {
     String className =
@@ -235,10 +357,24 @@ public class FileBridgeAutoConfiguration {
     }
   }
 
+  /**
+   * 将非空配置值写入适配器配置。
+   *
+   * @param values 目标配置集合
+   * @param key 配置键
+   * @param value 配置值，可为空
+   */
   private static void put(Map<String, String> values, String key, String value) {
     if (value != null) values.put(key, value);
   }
 
+  /**
+   * 校验必需存储配置。
+   *
+   * @param v 配置值
+   * @param name 配置名称
+   * @return 非空白配置值
+   */
   private static String require(String v, String name) {
     if (v == null || v.isBlank()) throw new IllegalStateException("Missing storage " + name);
     return v;

@@ -8,10 +8,22 @@ import org.springframework.transaction.support.TransactionTemplate;
 public final class JdbcTransactionRunner implements TransactionRunner {
   private final TransactionTemplate template;
 
+  /**
+   * 创建 Spring 事务执行器。
+   *
+   * @param template Spring 事务模板
+   */
   public JdbcTransactionRunner(TransactionTemplate template) {
     this.template = template;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param work 事务内工作
+   * @param <T> 返回值类型
+   * @return 事务成功提交后的结果
+   */
   @Override
   public <T> T required(Supplier<T> work) {
     return template.execute(status -> work.get());

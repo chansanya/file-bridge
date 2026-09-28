@@ -8,6 +8,11 @@ import java.util.*;
 public final class DefaultStorageRegistry implements StorageRegistry {
   private final Map<String, StorageProvider> providers;
 
+  /**
+   * 创建存储注册表。
+   *
+   * @param providers 全部存储适配器
+   */
   public DefaultStorageRegistry(Collection<? extends StorageProvider> providers) {
     Map<String, StorageProvider> values = new LinkedHashMap<>();
     for (StorageProvider provider : providers) {
@@ -19,6 +24,12 @@ public final class DefaultStorageRegistry implements StorageRegistry {
     this.providers = Collections.unmodifiableMap(values);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param storageId 存储实例 ID
+   * @return 匹配的存储适配器
+   */
   @Override
   public StorageProvider require(String storageId) {
     StorageProvider provider = providers.get(storageId);
@@ -28,6 +39,11 @@ public final class DefaultStorageRegistry implements StorageRegistry {
     return provider;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @return 全部已注册存储实例
+   */
   @Override
   public Collection<StorageProvider> providers() {
     return providers.values();

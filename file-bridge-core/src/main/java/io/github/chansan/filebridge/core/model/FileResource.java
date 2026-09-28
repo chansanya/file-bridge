@@ -10,6 +10,7 @@ import java.io.InputStream;
  * @param stream 文件内容输入流
  */
 public record FileResource(FileMetadata metadata, InputStream stream) implements AutoCloseable {
+  /** 关闭文件内容流。 */
   @Override
   public void close() throws IOException {
     stream.close();

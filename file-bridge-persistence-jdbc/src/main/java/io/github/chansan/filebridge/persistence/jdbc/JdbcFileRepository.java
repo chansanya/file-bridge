@@ -11,10 +11,21 @@ import org.springframework.jdbc.core.namedparam.*;
 public final class JdbcFileRepository implements FileRepository {
   private final NamedParameterJdbcTemplate jdbc;
 
+  /**
+   * 创建 JDBC 文件仓储。
+   *
+   * @param jdbc 具名参数 JDBC 模板
+   */
   public JdbcFileRepository(NamedParameterJdbcTemplate jdbc) {
     this.jdbc = jdbc;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param o 待保存物理对象
+   * @return 已保存对象
+   */
   @Override
   public StorageObjectRecord insertObject(StorageObjectRecord o) {
     jdbc.update(
@@ -37,6 +48,12 @@ public final class JdbcFileRepository implements FileRepository {
     return o;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param r 待保存业务引用
+   * @return 已保存引用
+   */
   @Override
   public FileReference insertReference(FileReference r) {
     jdbc.update(
@@ -57,6 +74,12 @@ public final class JdbcFileRepository implements FileRepository {
     return r;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 业务文件 ID
+   * @return 文件引用，不存在时返回空
+   */
   @Override
   public Optional<FileReference> findReference(UUID id) {
     return one(
@@ -65,6 +88,12 @@ public final class JdbcFileRepository implements FileRepository {
         JdbcFileRepository::ref);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 物理对象 ID
+   * @return 物理对象，不存在时返回空
+   */
   @Override
   public Optional<StorageObjectRecord> findObject(UUID id) {
     return one(
@@ -73,6 +102,16 @@ public final class JdbcFileRepository implements FileRepository {
         JdbcFileRepository::obj);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param tenant 租户 ID
+   * @param owner 用户 ID
+   * @param size 文件字节数
+   * @param sha 文件 SHA-256
+   * @param scope 秒传范围
+   * @return 已校验且可用的候选引用
+   */
   @Override
   public Optional<FileReference> findReusable(
       String tenant, String owner, long size, String sha, DeduplicationScope scope) {
@@ -93,6 +132,13 @@ public final class JdbcFileRepository implements FileRepository {
         JdbcFileRepository::ref);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 业务文件 ID
+   * @param at 删除时间
+   * @return 成功从有效状态切换为已删除时返回 {@code true}
+   */
   @Override
   public boolean markReferenceDeleted(UUID id, Instant at) {
     return jdbc.update(
@@ -102,6 +148,12 @@ public final class JdbcFileRepository implements FileRepository {
         == 1;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param objectId 物理对象 ID
+   * @return 当前有效引用数
+   */
   @Override
   public long countActiveReferences(UUID objectId) {
     Long v =
@@ -112,6 +164,13 @@ public final class JdbcFileRepository implements FileRepository {
     return v == null ? 0 : v;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 物理对象 ID
+   * @param now 当前时间
+   * @return 成功切换到待删除状态时返回 {@code true}
+   */
   @Override
   public boolean markObjectDeletePending(UUID id, Instant now) {
     return jdbc.update(
@@ -123,6 +182,12 @@ public final class JdbcFileRepository implements FileRepository {
         == 1;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 物理对象 ID
+   * @param now 当前时间
+   */
   @Override
   public void markObjectDeleted(UUID id, Instant now) {
     jdbc.update(
@@ -131,6 +196,13 @@ public final class JdbcFileRepository implements FileRepository {
         Map.of("id", s(id), "now", ts(now)));
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param olderThan 创建时间上限
+   * @param limit 最大返回数量
+   * @return 待回收物理对象
+   */
   @Override
   public List<StorageObjectRecord> findUnreferencedAvailable(Instant olderThan, int limit) {
     return jdbc.query(
@@ -142,6 +214,13 @@ public final class JdbcFileRepository implements FileRepository {
         JdbcFileRepository::obj);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param status 对象状态
+   * @param limit 最大返回数量
+   * @return 匹配对象列表
+   */
   @Override
   public List<StorageObjectRecord> findObjectsByStatus(StorageObjectStatus status, int limit) {
     return jdbc.query(
@@ -151,6 +230,13 @@ public final class JdbcFileRepository implements FileRepository {
         JdbcFileRepository::obj);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param id 物理对象 ID
+   * @param error 错误摘要
+   * @param now 当前时间
+   */
   @Override
   public void markObjectError(UUID id, String error, Instant now) {
     jdbc.update(
@@ -164,18 +250,41 @@ public final class JdbcFileRepository implements FileRepository {
             .addValue("now", ts(now)));
   }
 
+  /**
+   * 校验并返回分页上限。
+   *
+   * @param value 调用方传入的数量上限
+   * @return 合法数量上限
+   */
   private static int safeLimit(int value) {
     if (value < 1 || value > 1000)
       throw new IllegalArgumentException("limit must be between 1 and 1000");
     return value;
   }
 
+  /**
+   * 执行单行查询。
+   *
+   * @param sql 查询语句
+   * @param p SQL 具名参数
+   * @param m 行映射器
+   * @param <T> 返回记录类型
+   * @return 首条记录，查询为空时返回空
+   */
   private <T> Optional<T> one(
       String sql, SqlParameterSource p, org.springframework.jdbc.core.RowMapper<T> m) {
     List<T> v = jdbc.query(sql, p, m);
     return v.stream().findFirst();
   }
 
+  /**
+   * 将结果集行映射为业务文件引用。
+   *
+   * @param r 当前行
+   * @param n 行序号
+   * @return 业务文件引用
+   * @throws SQLException 列读取失败
+   */
   static FileReference ref(ResultSet r, int n) throws SQLException {
     return new FileReference(
         UUID.fromString(r.getString("id")),
@@ -190,6 +299,14 @@ public final class JdbcFileRepository implements FileRepository {
         instant(r, "deleted_at"));
   }
 
+  /**
+   * 将结果集行映射为物理对象记录。
+   *
+   * @param r 当前行
+   * @param n 行序号
+   * @return 物理对象记录
+   * @throws SQLException 列读取失败
+   */
   static StorageObjectRecord obj(ResultSet r, int n) throws SQLException {
     return new StorageObjectRecord(
         UUID.fromString(r.getString("id")),
@@ -205,14 +322,34 @@ public final class JdbcFileRepository implements FileRepository {
         r.getLong("version"));
   }
 
+  /**
+   * 转换可空 UUID 为字符串。
+   *
+   * @param v UUID 值
+   * @return UUID 字符串，空值时返回 {@code null}
+   */
   static String s(UUID v) {
     return v == null ? null : v.toString();
   }
 
+  /**
+   * 转换可空时间戳。
+   *
+   * @param v 时间值
+   * @return JDBC 时间戳，空值时返回 {@code null}
+   */
   static Timestamp ts(Instant v) {
     return v == null ? null : Timestamp.from(v);
   }
 
+  /**
+   * 读取可空时间列。
+   *
+   * @param r 当前行
+   * @param c 列名
+   * @return 时间值，数据库值为空时返回 {@code null}
+   * @throws SQLException 列读取失败
+   */
   static Instant instant(ResultSet r, String c) throws SQLException {
     Timestamp t = r.getTimestamp(c);
     return t == null ? null : t.toInstant();

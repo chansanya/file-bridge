@@ -24,6 +24,20 @@ public final class DefaultFileService implements FileService {
   private final ObjectKeyGenerator keys;
   private final ContentTypeDetector contentTypes;
 
+  /**
+   * 创建默认文件业务服务。
+   *
+   * @param files 文件仓储
+   * @param idempotency 幂等记录仓储
+   * @param tx 事务执行器
+   * @param storages 存储注册表
+   * @param defaultStorage 默认存储实例 ID
+   * @param actors 当前可信身份提供器
+   * @param policy 文件访问策略
+   * @param quota 上传配额策略
+   * @param keys 对象路径生成器
+   * @param contentTypes 内容类型检测器
+   */
   public DefaultFileService(
       FileRepository files,
       IdempotencyRepository idempotency,
@@ -47,6 +61,13 @@ public final class DefaultFileService implements FileService {
     this.contentTypes = contentTypes;
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param command 上传业务命令
+   * @param source 文件内容输入流
+   * @return 已创建文件元数据
+   */
   @Override
   public FileMetadata upload(UploadFileCommand command, InputStream source) {
     Objects.requireNonNull(command);
@@ -138,12 +159,24 @@ public final class DefaultFileService implements FileService {
     }
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param fileId 业务文件 ID
+   * @return 文件元数据
+   */
   @Override
   public FileMetadata get(UUID fileId) {
     Resolved r = resolve(fileId);
     return metadata(r.reference, r.object);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param fileId 业务文件 ID
+   * @return 可关闭下载资源，调用方必须关闭
+   */
   @Override
   public FileResource download(UUID fileId) {
     Resolved r = resolve(fileId);
@@ -152,6 +185,13 @@ public final class DefaultFileService implements FileService {
         storages.require(r.object.location().storageId()).open(r.object.location()));
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param fileId 业务文件 ID
+   * @param validity 地址有效时长
+   * @return 临时下载 URI
+   */
   @Override
   public URI createAccessUrl(UUID fileId, Duration validity) {
     Resolved r = resolve(fileId);
@@ -162,6 +202,11 @@ public final class DefaultFileService implements FileService {
     return signed.createDownloadUrl(r.object.location(), validity);
   }
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param fileId 业务文件 ID
+   */
   @Override
   public void delete(UUID fileId) {
     Resolved r = resolve(fileId);
@@ -169,6 +214,12 @@ public final class DefaultFileService implements FileService {
     files.markReferenceDeleted(fileId, Instant.now());
   }
 
+  /**
+   * 校验权限并解析可用文件。
+   *
+   * @param id 业务文件 ID
+   * @return 业务引用和物理对象
+   */
   private Resolved resolve(UUID id) {
     FileReference ref =
         files
@@ -189,11 +240,24 @@ public final class DefaultFileService implements FileService {
     return new Resolved(ref, obj);
   }
 
+  /**
+   * 合并业务引用和物理对象元数据。
+   *
+   * @param r 业务文件引用
+   * @param o 物理对象记录
+   * @return 对外文件元数据
+   */
   private static FileMetadata metadata(FileReference r, StorageObjectRecord o) {
     return new FileMetadata(
         r.id(), r.originalName(), o.size(), o.sha256(), o.contentType(), r.status(), r.createdAt());
   }
 
+  /**
+   * 清理客户端文件名的路径和控制字符。
+   *
+   * @param n 原始文件名
+   * @return 安全展示文件名
+   */
   private static String safeName(String n) {
     if (n == null || n.isBlank()) return "file";
     String v = n.replace('\\', '/');
@@ -201,6 +265,12 @@ public final class DefaultFileService implements FileService {
     return v.isBlank() ? "file" : v;
   }
 
+  /**
+   * 计算上传命令幂等指纹。
+   *
+   * @param c 上传业务命令
+   * @return SHA-256 指纹
+   */
   private static String fingerprint(UploadFileCommand c) {
     return sha256(
         String.join(
@@ -212,6 +282,12 @@ public final class DefaultFileService implements FileService {
             Objects.toString(c.businessId(), "")));
   }
 
+  /**
+   * 计算 UTF-8 文本 SHA-256。
+   *
+   * @param s 待计算文本
+   * @return 十六进制摘要
+   */
   private static String sha256(String s) {
     try {
       return HexFormat.of()
@@ -223,9 +299,21 @@ public final class DefaultFileService implements FileService {
     }
   }
 
+  /**
+   * 判断文本是否包含非空白内容。
+   *
+   * @param s 待判断文本
+   * @return 非空且包含非空白字符时返回 {@code true}
+   */
   private static boolean hasText(String s) {
     return s != null && !s.isBlank();
   }
 
+  /**
+   * 权限校验后的文件解析结果。
+   *
+   * @param reference 业务文件引用
+   * @param object 物理对象记录
+   */
   private record Resolved(FileReference reference, StorageObjectRecord object) {}
 }

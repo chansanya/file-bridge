@@ -10,6 +10,15 @@ import org.slf4j.MDC;
 public final class RequestIdFilter implements Filter {
   public static final String ATTRIBUTE = RequestIdFilter.class.getName() + ".id";
 
+  /**
+   * {@inheritDoc}
+   *
+   * @param req 当前 Servlet 请求
+   * @param res 当前 Servlet 响应
+   * @param chain 后续过滤器链
+   * @throws IOException 请求处理中的 IO 失败
+   * @throws ServletException 请求处理中的 Servlet 失败
+   */
   @Override
   public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
       throws IOException, ServletException {
