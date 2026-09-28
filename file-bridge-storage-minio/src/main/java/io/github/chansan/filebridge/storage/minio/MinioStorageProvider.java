@@ -12,7 +12,8 @@ import java.util.*;
 import java.util.concurrent.CompletionException;
 
 /** MinIO 对象存储适配器。 */
-public final class MinioStorageProvider implements MultipartStorageProvider, SignedUrlProvider {
+public final class MinioStorageProvider
+    implements MultipartStorageProvider, SignedUrlProvider, AutoCloseable {
   private final String id, bucket;
   private final MinioAsyncClient client;
 
@@ -310,6 +311,11 @@ public final class MinioStorageProvider implements MultipartStorageProvider, Sig
    *
    * @param l 待校验定位信息
    */
+  @Override
+  public void close() throws Exception {
+    client.close();
+  }
+
   private void check(ObjectLocation l) {
     if (l == null || !id.equals(l.storageId()) || !bucket.equals(l.bucket()))
       throw new IllegalArgumentException("Object belongs to another storage");

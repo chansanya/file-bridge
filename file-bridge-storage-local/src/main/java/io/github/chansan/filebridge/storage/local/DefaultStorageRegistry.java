@@ -5,7 +5,7 @@ import io.github.chansan.filebridge.core.spi.*;
 import java.util.*;
 
 /** 不可变的存储实例注册表。 */
-public final class DefaultStorageRegistry implements StorageRegistry {
+public final class DefaultStorageRegistry implements StorageRegistry, AutoCloseable {
   private final Map<String, StorageProvider> providers;
 
   /**
@@ -47,5 +47,21 @@ public final class DefaultStorageRegistry implements StorageRegistry {
   @Override
   public Collection<StorageProvider> providers() {
     return providers.values();
+  }
+
+  @Override
+  public void close() throws Exception {
+    Exception failure = null;
+    for (StorageProvider provider : providers.values()) {
+      if (provider instanceof AutoCloseable closeable) {
+        try {
+          closeable.close();
+        } catch (Exception error) {
+          if (failure == null) failure = error;
+          else failure.addSuppressed(error);
+        }
+      }
+    }
+    if (failure != null) throw failure;
   }
 }

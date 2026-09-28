@@ -35,27 +35,6 @@
       <artifactId>file-bridge-persistence-jdbc</artifactId>
       <version>${project.version}</version>
     </dependency>
-    <!-- 仅用于编译期识别 MinIO 适配器；optional 防止 Starter 强制传递云 SDK。 -->
-    <dependency>
-      <groupId>io.github.chansan</groupId>
-      <artifactId>file-bridge-storage-minio</artifactId>
-      <version>${project.version}</version>
-      <optional>true</optional>
-    </dependency>
-    <!-- 仅用于编译期识别阿里云 OSS 适配器；optional 防止强制传递云 SDK。 -->
-    <dependency>
-      <groupId>io.github.chansan</groupId>
-      <artifactId>file-bridge-storage-aliyun</artifactId>
-      <version>${project.version}</version>
-      <optional>true</optional>
-    </dependency>
-    <!-- 仅用于编译期识别腾讯云 COS 适配器；optional 防止强制传递云 SDK。 -->
-    <dependency>
-      <groupId>io.github.chansan</groupId>
-      <artifactId>file-bridge-storage-tencent</artifactId>
-      <version>${project.version}</version>
-      <optional>true</optional>
-    </dependency>
     <!-- 提供 @AutoConfiguration、条件装配和配置属性绑定基础设施。 -->
     <dependency>
       <groupId>org.springframework.boot</groupId>

@@ -54,14 +54,20 @@ public class FileBridgeJobConfiguration {
   JobRunner fileBridgeJobRunner(
       org.springframework.beans.factory.ObjectProvider<UploadCompletionWorker> w,
       org.springframework.beans.factory.ObjectProvider<CleanupService> c,
-      org.springframework.beans.factory.ObjectProvider<ReconciliationService> r) {
-    return new JobRunner(w.getIfAvailable(), c.getIfAvailable(), r.getIfAvailable());
+      org.springframework.beans.factory.ObjectProvider<ReconciliationService> r,
+      FileBridgeProperties properties) {
+    return new JobRunner(
+        w.getIfAvailable(),
+        c.getIfAvailable(),
+        r.getIfAvailable(),
+        properties.getCleanup().isEnabled());
   }
 
   public static final class JobRunner {
     private final UploadCompletionWorker worker;
     private final CleanupService cleanup;
     private final ReconciliationService reconciliation;
+    private final boolean cleanupEnabled;
 
     /**
      * 创建后台任务运行器。
@@ -70,10 +76,15 @@ public class FileBridgeJobConfiguration {
      * @param c 清理服务，可为空
      * @param r 对账服务，可为空
      */
-    JobRunner(UploadCompletionWorker w, CleanupService c, ReconciliationService r) {
+    JobRunner(
+        UploadCompletionWorker w,
+        CleanupService c,
+        ReconciliationService r,
+        boolean cleanupEnabled) {
       worker = w;
       cleanup = c;
       reconciliation = r;
+      this.cleanupEnabled = cleanupEnabled;
     }
 
     /** 执行一轮上传完成处理。 */
@@ -85,7 +96,7 @@ public class FileBridgeJobConfiguration {
     /** 执行一轮过期任务和无引用对象清理。 */
     @Scheduled(fixedDelayString = "${file-bridge.cleanup.interval:30m}")
     public void clean() {
-      if (cleanup != null) {
+      if (cleanupEnabled && cleanup != null) {
         cleanup.cleanExpiredUploads(100);
         cleanup.cleanUnreferencedObjects(100);
       }

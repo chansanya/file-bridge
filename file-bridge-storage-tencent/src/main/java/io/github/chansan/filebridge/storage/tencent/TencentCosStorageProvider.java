@@ -13,7 +13,7 @@ import java.util.*;
 
 /** 腾讯云 COS 存储适配器。 */
 public final class TencentCosStorageProvider
-    implements MultipartStorageProvider, SignedUrlProvider {
+    implements MultipartStorageProvider, SignedUrlProvider, AutoCloseable {
   private final String id, bucket;
   private final COSClient client;
 
@@ -277,6 +277,11 @@ public final class TencentCosStorageProvider
    *
    * @param l 待校验定位信息
    */
+  @Override
+  public void close() throws Exception {
+    client.shutdown();
+  }
+
   private void check(ObjectLocation l) {
     if (l == null || !id.equals(l.storageId()) || !bucket.equals(l.bucket()))
       throw new IllegalArgumentException("Object belongs to another storage");
