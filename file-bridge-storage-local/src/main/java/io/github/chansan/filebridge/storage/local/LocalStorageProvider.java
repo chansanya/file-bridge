@@ -15,6 +15,8 @@ import java.util.stream.Stream;
 /** 支持流式读写和分片合并的本地文件系统适配器。 */
 public final class LocalStorageProvider implements MultipartStorageProvider {
   private static final int BUFFER_SIZE = 64 * 1024;
+  private static final System.Logger LOGGER =
+      System.getLogger(LocalStorageProvider.class.getName());
   private final String storageId;
   private final Path root;
   private final Path temporaryRoot;
@@ -32,9 +34,14 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     this.temporaryRoot = normalize(temporaryRoot, "temporaryRoot");
     if (this.root.equals(this.temporaryRoot))
       throw new IllegalArgumentException("root and temporaryRoot must differ");
+    if (Files.isSymbolicLink(this.root) || Files.isSymbolicLink(this.temporaryRoot)) {
+      throw new IllegalArgumentException("storage roots must not be symbolic links");
+    }
     try {
       Files.createDirectories(this.root);
       Files.createDirectories(this.temporaryRoot);
+      rejectSymbolicLinks(this.root, this.root);
+      rejectSymbolicLinks(this.temporaryRoot, this.temporaryRoot);
     } catch (IOException e) {
       throw storageFailure("Cannot initialize local storage", e);
     }
@@ -193,7 +200,7 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
       DigestResult result = copyWithDigest(input, temp, contentLength);
       // 相同分片重试幂等成功，不同内容禁止静默覆盖。
       if (Files.exists(target)) {
-        Properties existing = loadProperties(metadata);
+        Properties existing = loadOrRepairPartMetadata(target, metadata);
         if (Long.toString(result.size()).equals(existing.getProperty("size"))
             && result.sha256().equals(existing.getProperty("sha256"))) {
           deleteQuietly(temp);
@@ -297,7 +304,12 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
               HexFormat.of().formatHex(digest.digest()),
               contentType,
               Instant.now());
-      deleteTree(multipartDirectory(handle.providerUploadId()));
+      try {
+        deleteTree(multipartDirectory(handle.providerUploadId()));
+      } catch (FileBridgeException cleanupError) {
+        LOGGER.log(
+            System.Logger.Level.WARNING, "Unable to clean completed multipart data", cleanupError);
+      }
       return result;
     } catch (IOException e) {
       deleteQuietly(temp);
@@ -345,6 +357,55 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
    * @return 已加载属性
    * @throws IOException 文件读取失败
    */
+  private static Properties loadOrRepairPartMetadata(Path body, Path metadata) throws IOException {
+    if (Files.isRegularFile(metadata, LinkOption.NOFOLLOW_LINKS)) {
+      return loadProperties(metadata);
+    }
+    DigestResult digest;
+    try (InputStream input = Files.newInputStream(body)) {
+      digest = digest(input);
+    }
+    Properties repaired = new Properties();
+    repaired.setProperty("size", Long.toString(digest.size()));
+    repaired.setProperty("sha256", digest.sha256());
+    Path temporary =
+        metadata.resolveSibling(metadata.getFileName() + ".repair-" + UUID.randomUUID());
+    try (OutputStream output = Files.newOutputStream(temporary, StandardOpenOption.CREATE_NEW)) {
+      repaired.store(output, null);
+    }
+    moveAtomically(temporary, metadata);
+    return repaired;
+  }
+
+  private static DigestResult digest(InputStream input) throws IOException {
+    MessageDigest digest = sha256();
+    long total = 0;
+    byte[] buffer = new byte[BUFFER_SIZE];
+    int read;
+    while ((read = input.read(buffer)) >= 0) {
+      if (read > 0) {
+        digest.update(buffer, 0, read);
+        total += read;
+      }
+    }
+    return new DigestResult(total, HexFormat.of().formatHex(digest.digest()));
+  }
+
+  private static void rejectSymbolicLinks(Path base, Path target) {
+    Path current = base;
+    if (Files.isSymbolicLink(current)) {
+      throw new FileBridgeException(
+          FileBridgeErrorCode.INVALID_REQUEST, "Storage path contains a symbolic link");
+    }
+    for (Path segment : base.relativize(target)) {
+      current = current.resolve(segment);
+      if (Files.exists(current, LinkOption.NOFOLLOW_LINKS) && Files.isSymbolicLink(current)) {
+        throw new FileBridgeException(
+            FileBridgeErrorCode.INVALID_REQUEST, "Storage path contains a symbolic link");
+      }
+    }
+  }
+
   private static Properties loadProperties(Path path) throws IOException {
     Properties p = new Properties();
     try (InputStream in = Files.newInputStream(path)) {
@@ -390,6 +451,7 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     if (!p.startsWith(base))
       throw new FileBridgeException(
           FileBridgeErrorCode.INVALID_REQUEST, "Object path escapes storage root");
+    rejectSymbolicLinks(base, p);
     return p;
   }
 
