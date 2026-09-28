@@ -74,6 +74,18 @@ example:
 
 该属性只属于演示工程，用于设置示例 Controller 的路径前缀，不是 FileBridge Starter 的公共配置项。真实业务项目可以采用自己的路径、响应结构和鉴权方式。
 
+示例前端还在 `useFileBridge.js` 中提供浏览器侧默认参数：
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `apiBase` | `/api/file-bridge` | REST API 前缀 |
+| `chunkThreshold` | `10 MiB` | 小文件直传与大文件分片的分界 |
+| `preferredPartSize` | `8 MiB` | 浏览器初始分片估算值，最终以服务端响应为准 |
+| `hashBlockSize` | `4 MiB` | 增量 SHA-256 读取块大小 |
+| `concurrency` | `3` | 单文件并发上传分片数 |
+
+这些参数只控制 Example 浏览器行为，不属于 `file-bridge.*` 服务端配置，也不能绕过服务端限制。详见 [Example 上传控制台](example.md)。
+
 ## 4. 上传配置
 
 | 配置项 | 默认值 | 说明 |

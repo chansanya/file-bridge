@@ -26,7 +26,7 @@ FileBridge 采用端口与适配器结构，将文件业务流程、数据库持
 | `file-bridge-storage-tencent` | 腾讯云 COS 对象及原生分片操作 |
 | `file-bridge-spring-boot-autoconfigure` | 属性绑定、条件装配、覆盖机制和启动校验 |
 | `file-bridge-spring-boot-starter` | Spring Boot 接入入口，不传递云 SDK |
-| `example` | 独立 Spring Boot 接入工程，包含参考 REST、Demo 身份和上传页面 |
+| `example` | 独立 Spring Boot 接入工程，包含参考 REST、Demo 身份和 Vue 3 上传控制台 |
 
 ## 3. 依赖方向
 
@@ -169,3 +169,18 @@ CREATED -> UPLOADING -> COMPLETING -> VERIFYING -> COMPLETED
 - 注册 REST Controller；
 - 自动引入所有云 SDK；
 - 自动迁移已有文件到新存储。
+## 11. Example 前端结构
+
+Example 前端直接由 Spring Boot 静态资源目录提供，不需要 Node.js 构建：
+
+```text
+index.html
+  -> Import Map 加载 vendor/vue.esm-browser.js
+  -> app.js 创建 Vue 应用和界面组件
+  -> useFileBridge.js 编排上传队列和 REST 调用
+  -> sha256.js 提供增量摘要算法
+```
+
+浏览器根据 10 MiB 默认阈值选择普通上传或分片上传。大文件优先通过 Web Worker 计算 SHA-256，并使用 `localStorage` 保存 `uploadId` 以恢复缺失分片。文件队列按文件串行处理，单个大文件内部默认最多并发上传 3 个分片。
+
+前端摘要和任务缓存都不属于可信数据。服务端仍负责身份、权限、分片长度、最终大小和完整 SHA-256 校验。

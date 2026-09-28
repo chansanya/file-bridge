@@ -34,7 +34,7 @@
 - Spring Boot Starter 自动配置。
 - Starter 提供 Java 服务调用方式；独立 `example` 工程提供参考 REST 接口。
 - 过期任务、临时分片和无引用对象的清理。
-- 示例工程、原生 JavaScript 上传页面和接入文档。
+- 独立示例工程、Vue 3 浏览器 ESM 上传控制台和接入文档。
 
 ### 2.2 暂不实现
 
@@ -56,7 +56,7 @@ V1 使用服务端中转上传；云存储适配优先使用平台原生分片�
 | Web | Starter 不包含 Controller；独立 `example` 使用 Spring MVC 演示真实业务接入 |
 | 持久化 | JDBC 实现；示例以 MySQL 为目标，具体版本在 M1 固定 |
 | 云 SDK | 各平台官方 Java SDK，按需依赖，在实施时核对官方文档和兼容性 |
-| 示例前端 | HTML、CSS、原生 JavaScript，不使用 TypeScript |
+| 示例前端 | HTML、CSS、Vue 3 浏览器 ESM；不使用 TypeScript，不需要打包构建 |
 | 校验摘要 | SHA-256；最终摘要由可信服务端流程核验 |
 | 并发控制 | 数据库唯一约束、状态条件更新和可恢复的任务租约 |
 | Redis | V1 不作为强制依赖 |
@@ -95,7 +95,7 @@ file-bridge/
 | persistence-jdbc | 文件、引用、上传任务、分片的数据库实现 |
 | autoconfigure | 属性绑定、条件装配、用户 Bean 覆盖和启动校验 |
 | starter | 提供依赖入口，不堆放业务实现，不强制引入所有云 SDK |
-| example | 独立 Spring Boot 工程，只依赖 Starter，提供参考 REST 和 JavaScript 上传演示 |
+| example | 独立 Spring Boot 工程，只依赖 Starter，提供参考 REST 和 Vue 3 上传控制台 |
 
 模块依赖单向组织：核心不依赖适配器；业务流程依赖核心接口；自动配置负责组装。未引入某云 SDK 时，其他存储仍能正常启动。`example` 不继承 FileBridge Parent，只通过 Starter 模拟真实业务工程接入。
 
@@ -294,7 +294,7 @@ V1 本地适配器默认单实例运行。若多实例部署，必须有共享�
 - [ ] 实现合并、最终大小及摘要校验。
 - [ ] 实现完成幂等、并发状态控制、租约恢复。
 - [ ] 实现取消、过期任务及临时分片清理。
-- [ ] 示例页面支持进度、暂停调度、恢复和失败重试。
+- [ ] 示例控制台支持拖放队列、摘要 Worker、进度、分片并发、暂停调度、恢复和取消。
 
 验收：断网、刷新和服务重启后可补传缺失分片；并发 complete 不产生不同结果；合并期间崩溃后可以恢复或明确失败并清理。
 

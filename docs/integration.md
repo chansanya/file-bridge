@@ -52,6 +52,8 @@ Starter 只提供 Java 服务能力，不包含 Controller、Servlet Filter 或 
 ./mvnw -f example/pom.xml spring-boot:run
 ```
 
+启动后访问 <http://localhost:8080/>。控制台支持拖放多文件、小文件直传、大文件分片、秒传探测、断点续传和上传状态控制，具体行为见 [Example 上传控制台](example.md)。
+
 ## 3. 初始化数据库
 
 数据库脚本位于 [`docs/database`](database/README.md)：

@@ -12,6 +12,7 @@ FileBridge 是一个可嵌入 Spring Boot 的通用文件服务组件，提供�
 - JDBC 持久化和 MySQL 8.4 数据库脚本
 - Spring Boot 自动配置和 Java 服务接口
 - 独立 `example` 工程演示真实 Starter 接入和 REST 封装
+- Vue 3 浏览器 ESM 上传控制台：拖放队列、小文件直传、大文件分片、秒传和续传
 
 ## 技术基线
 
@@ -59,6 +60,7 @@ file-bridge:
 - [完整接入步骤](docs/integration.md)
 - [配置项和存储示例](docs/configuration.md)
 - [REST API](docs/api.md)
+- [Example 上传控制台](docs/example.md)
 - [架构与模块边界](docs/architecture.md)
 - [数据库脚本说明](docs/database/README.md)
 
@@ -97,7 +99,7 @@ POM 使用 SortPom 4.0.0，构建时会自动检查：
 ./mvnw validate
 ```
 
-`example` 中的 HTML、CSS 和原生 JavaScript 使用 Prettier 3.9.9：
+`example` 使用 Vue 3 浏览器 ESM，不需要前端构建步骤。业务 HTML、CSS 和 JavaScript 使用 Prettier 3.9.9；`vendor/` 下的第三方文件不参与格式化：
 
 ```bash
 npx prettier@3.9.9 --write \
