@@ -61,12 +61,6 @@ public final class FileController {
    * @param id 业务文件 ID
    * @return 当前身份有权访问的文件元数据
    */
-  /**
-   * 查询文件元数据。
-   *
-   * @param id 业务文件 ID
-   * @return 文件元数据
-   */
   @GetMapping("/{id}")
   FileMetadata get(@PathVariable UUID id) {
     return service.get(id);
@@ -77,12 +71,6 @@ public final class FileController {
    *
    * @param id 业务文件 ID
    * @return 带安全文件名、长度和内容类型的流式响应
-   */
-  /**
-   * 流式下载文件。
-   *
-   * @param id 业务文件 ID
-   * @return 流式下载响应
    */
   @GetMapping("/{id}/download")
   ResponseEntity<StreamingResponseBody> download(@PathVariable UUID id) {
@@ -125,11 +113,6 @@ public final class FileController {
     return Map.of("url", uri.toString());
   }
 
-  /**
-   * 删除业务文件引用。
-   *
-   * @param id 业务文件 ID
-   */
   /**
    * 删除业务文件引用。
    *

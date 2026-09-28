@@ -27,7 +27,8 @@
         --text-secondary: #94a3b8;
         --text-tertiary: #475569;
         color-scheme: dark;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "JetBrains Mono", sans-serif;
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'JetBrains Mono', sans-serif;
       }
 
       * {
@@ -73,7 +74,9 @@
         border: 1px solid var(--border-subtle);
         border-radius: 28px;
         padding: 36px;
-        box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.03);
+        box-shadow:
+          0 40px 100px -20px rgba(0, 0, 0, 0.95),
+          0 0 0 1px rgba(255, 255, 255, 0.03);
         backdrop-filter: blur(28px);
       }
 
@@ -146,7 +149,8 @@
         text-align: center;
       }
 
-      .drop-zone:hover, .drop-zone.active {
+      .drop-zone:hover,
+      .drop-zone.active {
         border-color: var(--border-accent);
         background: rgba(59, 130, 246, 0.05);
         transform: translateY(-2px);
@@ -362,8 +366,12 @@
       }
 
       @keyframes spin-loop {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
       }
     </style>
   </head>
@@ -379,7 +387,10 @@
           </div>
           <div class="telemetry-box">
             <span>NODE // LOCAL-MAIN</span>
-            <span><i class="pulse-beacon"></i>THROUGHPUT: {{ activeThroughput }}</span>
+            <span>
+              <i class="pulse-beacon"></i>
+              THROUGHPUT: {{ activeThroughput }}
+            </span>
           </div>
         </header>
 
@@ -391,18 +402,10 @@
           @drop.prevent="onDrop"
           @click="fileInputRef?.click()"
         >
-          <input
-            ref="fileInputRef"
-            type="file"
-            multiple
-            style="display: none"
-            @change="onSelect"
-          />
+          <input ref="fileInputRef" type="file" multiple style="display: none" @change="onSelect" />
           <UploadCloud class="drop-icon" :size="48"></UploadCloud>
           <h2 class="kinetic-heading">DISPATCH ARTIFACT // DROP OR SELECT</h2>
-          <p class="kinetic-caption">
-            自动检测小文件直传与大文件分片、SHA-256 秒传探测、断点续传
-          </p>
+          <p class="kinetic-caption">自动检测小文件直传与大文件分片、SHA-256 秒传探测、断点续传</p>
         </section>
 
         <section v-if="fileQueue.length > 0" class="stream-section">
@@ -437,7 +440,7 @@
                 </div>
 
                 <button
-                  v-if="item.status === 'UPLOADING'"
+                  v-if="item.status === 'UPLOADING' && item.resumable"
                   class="ctrl-btn"
                   title="暂停上传"
                   @click="pauseItem(item)"
@@ -461,11 +464,7 @@
                 >
                   <Download :size="14"></Download>
                 </a>
-                <button
-                  class="ctrl-btn"
-                  title="删除或取消"
-                  @click="handleDelete(item)"
-                >
+                <button class="ctrl-btn" title="删除或取消" @click="handleDelete(item)">
                   <Trash2 :size="14"></Trash2>
                 </button>
               </div>
@@ -485,7 +484,7 @@
             <div v-if="item.totalParts > 1" class="part-grid">
               <div class="grid-caption">
                 <span>
-                  <Layers :size="11" style="vertical-align: middle; margin-right: 4px;"></Layers>
+                  <Layers :size="11" style="vertical-align: middle; margin-right: 4px"></Layers>
                   PART MATRIX ({{ item.completedParts.size }}/{{ item.totalParts }})
                 </span>
                 <span>PART SIZE: 8MB</span>

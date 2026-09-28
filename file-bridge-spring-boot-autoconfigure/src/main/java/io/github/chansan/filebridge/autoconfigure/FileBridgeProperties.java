@@ -16,110 +16,110 @@ public class FileBridgeProperties {
   private Deduplication deduplication = new Deduplication();
   private Map<String, Storage> storages = new LinkedHashMap<>();
 
-    /**
-     * 获取是否启用 FileBridge。
-     *
-     * @return 启用状态
-     */
+  /**
+   * 获取是否启用 FileBridge。
+   *
+   * @return 启用状态
+   */
   public boolean isEnabled() {
     return enabled;
   }
 
-    /**
-     * 设置是否启用 FileBridge。
-     *
-     * @param v 启用状态
-     */
+  /**
+   * 设置是否启用 FileBridge。
+   *
+   * @param v 启用状态
+   */
   public void setEnabled(boolean v) {
     enabled = v;
   }
 
-    /**
-     * 获取默认存储实例 ID。
-     *
-     * @return 默认存储实例 ID
-     */
+  /**
+   * 获取默认存储实例 ID。
+   *
+   * @return 默认存储实例 ID
+   */
   public String getDefaultStorage() {
     return defaultStorage;
   }
 
-    /**
-     * 设置默认存储实例 ID。
-     *
-     * @param v 默认存储实例 ID
-     */
+  /**
+   * 设置默认存储实例 ID。
+   *
+   * @param v 默认存储实例 ID
+   */
   public void setDefaultStorage(String v) {
     defaultStorage = v;
   }
 
-    /**
-     * 获取上传配置。
-     *
-     * @return 上传配置
-     */
+  /**
+   * 获取上传配置。
+   *
+   * @return 上传配置
+   */
   public Upload getUpload() {
     return upload;
   }
 
-    /**
-     * 设置上传配置。
-     *
-     * @param v 上传配置
-     */
+  /**
+   * 设置上传配置。
+   *
+   * @param v 上传配置
+   */
   public void setUpload(Upload v) {
     upload = v;
   }
 
-    /**
-     * 获取清理配置。
-     *
-     * @return 清理配置
-     */
+  /**
+   * 获取清理配置。
+   *
+   * @return 清理配置
+   */
   public Cleanup getCleanup() {
     return cleanup;
   }
 
-    /**
-     * 设置清理配置。
-     *
-     * @param v 清理配置
-     */
+  /**
+   * 设置清理配置。
+   *
+   * @param v 清理配置
+   */
   public void setCleanup(Cleanup v) {
     cleanup = v;
   }
 
-    /**
-     * 获取秒传配置。
-     *
-     * @return 秒传配置
-     */
+  /**
+   * 获取秒传配置。
+   *
+   * @return 秒传配置
+   */
   public Deduplication getDeduplication() {
     return deduplication;
   }
 
-    /**
-     * 设置秒传配置。
-     *
-     * @param v 秒传配置
-     */
+  /**
+   * 设置秒传配置。
+   *
+   * @param v 秒传配置
+   */
   public void setDeduplication(Deduplication v) {
     deduplication = v;
   }
 
-    /**
-     * 获取按实例 ID 索引的存储配置。
-     *
-     * @return 存储配置集合
-     */
+  /**
+   * 获取按实例 ID 索引的存储配置。
+   *
+   * @return 存储配置集合
+   */
   public Map<String, Storage> getStorages() {
     return storages;
   }
 
-    /**
-     * 设置按实例 ID 索引的存储配置。
-     *
-     * @param v 存储配置集合
-     */
+  /**
+   * 设置按实例 ID 索引的存储配置。
+   *
+   * @param v 存储配置集合
+   */
   public void setStorages(Map<String, Storage> v) {
     storages = v;
   }

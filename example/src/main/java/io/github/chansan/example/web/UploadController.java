@@ -78,12 +78,6 @@ public final class UploadController {
    * @param id 上传任务 ID
    * @return 任务状态和已确认分片
    */
-  /**
-   * 查询上传进度。
-   *
-   * @param id 上传任务 ID
-   * @return 上传任务状态
-   */
   @GetMapping("/{id}")
   UploadStatusView get(@PathVariable UUID id) {
     return service.get(id);
@@ -95,12 +89,6 @@ public final class UploadController {
    * @param id 上传任务 ID
    * @return 已完成结果或 HTTP 202 处理中状态
    */
-  /**
-   * 提交后台合并和校验请求。
-   *
-   * @param id 上传任务 ID
-   * @return 已完成结果或处理中状态响应
-   */
   @PostMapping("/{id}/complete")
   ResponseEntity<UploadStatusView> complete(@PathVariable UUID id) {
     UploadStatusView v = service.requestCompletion(id);
@@ -111,11 +99,6 @@ public final class UploadController {
 
   /**
    * 幂等取消上传任务。
-   *
-   * @param id 上传任务 ID
-   */
-  /**
-   * 取消上传任务。
    *
    * @param id 上传任务 ID
    */

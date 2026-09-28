@@ -230,6 +230,8 @@ export function useFileBridge(options = {}) {
 
   async function uploadMultipart(item) {
     const resumeKey = `fb:${item.size}:${item.sha256}`;
+    item.resumeKey = resumeKey;
+    item.resumable = true;
     let uploadId = localStorage.getItem(resumeKey);
     let partSize = preferredPartSize;
     let totalParts = Math.ceil(item.size / preferredPartSize);
@@ -315,16 +317,13 @@ export function useFileBridge(options = {}) {
 
         const putRes = await fetch(`${apiBase}/uploads/${item.uploadId}/parts/${partNumber}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/octet-stream',
-            'Content-Length': String(chunkBlob.size),
-          },
+          headers: { 'Content-Type': 'application/octet-stream' },
           body: chunkBlob,
         });
 
-        if (!putRes.ok && putRes.status !== 409) {
+        if (!putRes.ok) {
           pendingParts.unshift(partNumber);
-          throw new Error(`Part ${partNumber} failed (${putRes.status})`);
+          throw await toApiError(putRes, `Part ${partNumber} failed`);
         }
 
         item.completedParts.add(partNumber);
@@ -354,8 +353,12 @@ export function useFileBridge(options = {}) {
       await new Promise((r) => setTimeout(r, 1200));
       if (item.aborted) throw new Error('ABORTED');
       const pollRes = await fetch(`${apiBase}/uploads/${item.uploadId}`);
+      if (!pollRes.ok) throw await toApiError(pollRes, 'Upload status query failed');
       compData = await pollRes.json();
-      if (compData.status === 'FAILED') throw new Error('Server verification failed');
+    }
+
+    if (compData.status !== 'COMPLETED' || !compData.fileId) {
+      throw new Error(`Upload ended with unexpected state: ${compData.status}`);
     }
 
     localStorage.removeItem(resumeKey);
@@ -416,13 +419,15 @@ export function useFileBridge(options = {}) {
         fileId: null,
         uploadId: null,
         errorMessage: null,
+        resumable: false,
+        resumeKey: null,
       });
     }
     processQueue();
   }
 
   function pauseItem(item) {
-    if (item.status === 'UPLOADING') {
+    if (item.status === 'UPLOADING' && item.resumable) {
       item.paused = true;
       item.status = 'PAUSED';
     }
@@ -445,6 +450,7 @@ export function useFileBridge(options = {}) {
     if (item.xhr) {
       item.xhr.abort();
     }
+    if (item.resumeKey) localStorage.removeItem(item.resumeKey);
     if (item.uploadId) {
       try {
         await fetch(`${apiBase}/uploads/${item.uploadId}`, { method: 'DELETE' });
@@ -453,6 +459,18 @@ export function useFileBridge(options = {}) {
     item.status = 'CANCELLED';
     const index = fileQueue.value.indexOf(item);
     if (index > -1) fileQueue.value.splice(index, 1);
+  }
+
+  async function toApiError(response, fallbackMessage) {
+    let message = fallbackMessage;
+    try {
+      const body = await response.json();
+      message = body.message || body.code || message;
+    } catch {
+      const text = await response.text();
+      if (text) message = text;
+    }
+    return new Error(`${response.status}: ${message}`);
   }
 
   async function deleteFile(fileId) {
