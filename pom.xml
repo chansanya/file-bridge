@@ -84,35 +84,43 @@
   <build>
     <pluginManagement>
       <plugins>
+        <!-- 统一 Java 编译插件版本，并固定 Java 17 字节码与参数名保留策略。 -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
           <version>3.14.1</version>
           <configuration>
+            <!-- 同时约束源码 API 和生成字节码为 Java 17，避免只设置 source/target 的 API 漏洞。 -->
             <release>${java.version}</release>
+            <!-- 将方法参数名写入字节码，便于 Spring 反射绑定和诊断。 -->
             <parameters>true</parameters>
           </configuration>
         </plugin>
+        <!-- 运行 *Test 单元测试，并在 test 阶段生成测试报告。 -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>3.5.4</version>
         </plugin>
+        <!-- 预留 *IT 集成测试插件版本；模块启用后在 integration-test/verify 阶段执行。 -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-failsafe-plugin</artifactId>
           <version>3.5.4</version>
         </plugin>
+        <!-- 校验 Java、Maven 版本以及传递依赖是否收敛。 -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-enforcer-plugin</artifactId>
           <version>3.6.2</version>
         </plugin>
+        <!-- 使用 Google Java Format 检查 Java 源码格式。 -->
         <plugin>
           <groupId>com.diffplug.spotless</groupId>
           <artifactId>spotless-maven-plugin</artifactId>
           <version>${spotless.version}</version>
         </plugin>
+        <!-- 按 Maven 推荐顺序格式化并校验所有 pom.xml。 -->
         <plugin>
           <groupId>com.github.ekryd.sortpom</groupId>
           <artifactId>sortpom-maven-plugin</artifactId>
@@ -121,6 +129,7 @@
       </plugins>
     </pluginManagement>
     <plugins>
+      <!-- 在构建早期阻止错误 JDK、Maven 或依赖版本冲突进入后续阶段。 -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-enforcer-plugin</artifactId>
@@ -128,53 +137,78 @@
           <execution>
             <id>enforce</id>
             <goals>
+              <!-- 执行下方 rules 中声明的全部约束。 -->
               <goal>enforce</goal>
             </goals>
+            <!-- validate 阶段最先执行环境和依赖约束检查。 -->
+            <phase>validate</phase>
             <configuration>
+              <!-- rules 中的全部规则必须同时通过。 -->
               <rules>
+                <!-- 校验执行 Maven 的 JDK 版本。 -->
                 <requireJavaVersion>
+                  <!-- [17,) 表示 Java 版本必须大于或等于 17。 -->
                   <version>[17,)</version>
                 </requireJavaVersion>
+                <!-- 校验 Maven Wrapper 或本机 Maven 版本。 -->
                 <requireMavenVersion>
+                  <!-- [3.9.0,) 表示 Maven 版本必须大于或等于 3.9.0。 -->
                   <version>[3.9.0,)</version>
                 </requireMavenVersion>
+                <!-- 要求同一依赖只能解析为一个版本，避免运行期类冲突。 -->
                 <dependencyConvergence/>
               </rules>
             </configuration>
           </execution>
         </executions>
       </plugin>
+      <!-- 校验 POM 的元素顺序、缩进、空元素和空行风格。 -->
       <plugin>
         <groupId>com.github.ekryd.sortpom</groupId>
         <artifactId>sortpom-maven-plugin</artifactId>
         <configuration>
+          <!-- 格式化时不生成 pom.xml.bak 备份文件，避免污染仓库。 -->
           <createBackupFile>false</createBackupFile>
+          <!-- 无内容元素使用 <tag/>，不展开为 <tag></tag>。 -->
           <expandEmptyElements>false</expandEmptyElements>
+          <!-- 仅对根元素的 schemaLocation 属性进行标准换行缩进。 -->
           <indentAttribute>schemaLocation</indentAttribute>
+          <!-- 最多保留一行有意义的空行，便于按区块阅读。 -->
           <keepBlankLines>true</keepBlankLines>
+          <!-- POM 不符合规范时立即终止构建，不自动修改文件。 -->
           <verifyFail>stop</verifyFail>
+          <!-- strict 同时检查 XML 元素顺序和空白格式。 -->
           <verifyFailOn>strict</verifyFailOn>
         </configuration>
         <executions>
           <execution>
             <id>sort-pom-check</id>
             <goals>
+              <!-- verify 只检查格式；需要自动整理时手工执行 sortpom:sort。 -->
               <goal>verify</goal>
             </goals>
+            <!-- validate 阶段尽早发现 POM 格式问题。 -->
             <phase>validate</phase>
           </execution>
         </executions>
       </plugin>
+      <!-- 对所有 Java 源码执行可重复的格式校验。 -->
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
         <configuration>
+          <!-- 只处理 Java 源文件，不改动资源文件和生成文件。 -->
           <java>
+            <!-- 选择 Google Java Format 作为确定性格式化引擎。 -->
             <googleJavaFormat>
+              <!-- 固定格式化器版本，避免不同开发机产生不同结果。 -->
               <version>${google-java-format.version}</version>
             </googleJavaFormat>
+            <!-- 删除未使用 import。 -->
             <removeUnusedImports/>
+            <!-- 删除每行末尾多余空白。 -->
             <trimTrailingWhitespace/>
+            <!-- 保证源码文件以换行结束。 -->
             <endWithNewline/>
           </java>
         </configuration>
@@ -182,8 +216,10 @@
           <execution>
             <id>spotless-check</id>
             <goals>
+              <!-- check 只校验；需要自动格式化时执行 spotless:apply。 -->
               <goal>check</goal>
             </goals>
+            <!-- validate 阶段在编译前拦截格式问题。 -->
             <phase>validate</phase>
           </execution>
         </executions>

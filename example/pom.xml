@@ -61,43 +61,60 @@
 
   <build>
     <plugins>
+      <!-- 将独立示例打包为可运行 Spring Boot JAR，并提供 spring-boot:run。 -->
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
       </plugin>
+      <!-- 示例工程不继承 FileBridge Parent，因此独立声明 POM 格式检查。 -->
       <plugin>
         <groupId>com.github.ekryd.sortpom</groupId>
         <artifactId>sortpom-maven-plugin</artifactId>
         <version>${sortpom.version}</version>
         <configuration>
+          <!-- 不生成 pom.xml.bak 备份文件。 -->
           <createBackupFile>false</createBackupFile>
+          <!-- 空元素使用 <tag/> 简写。 -->
           <expandEmptyElements>false</expandEmptyElements>
+          <!-- 规范根元素 schemaLocation 属性缩进。 -->
           <indentAttribute>schemaLocation</indentAttribute>
+          <!-- 保留用于区分配置区块的单个空行。 -->
           <keepBlankLines>true</keepBlankLines>
+          <!-- 格式不正确时终止构建。 -->
           <verifyFail>stop</verifyFail>
+          <!-- 严格检查元素顺序与空白格式。 -->
           <verifyFailOn>strict</verifyFailOn>
         </configuration>
         <executions>
           <execution>
             <id>sort-pom-check</id>
             <goals>
+              <!-- 只验证 POM，不在构建过程中偷偷改文件。 -->
               <goal>verify</goal>
             </goals>
+            <!-- 编译前执行 POM 检查。 -->
             <phase>validate</phase>
           </execution>
         </executions>
       </plugin>
+      <!-- 示例工程独立执行与主工程一致的 Java 格式检查。 -->
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
         <version>${spotless.version}</version>
         <configuration>
+          <!-- 只处理 Java 源文件，不改动资源文件和生成文件。 -->
           <java>
+            <!-- 选择 Google Java Format 作为确定性格式化引擎。 -->
             <googleJavaFormat>
+              <!-- 固定 Google Java Format 版本。 -->
               <version>${google-java-format.version}</version>
             </googleJavaFormat>
+            <!-- 删除未使用 import。 -->
             <removeUnusedImports/>
+            <!-- 删除行尾空白。 -->
             <trimTrailingWhitespace/>
+            <!-- 保证文件末尾存在换行。 -->
             <endWithNewline/>
           </java>
         </configuration>
@@ -105,8 +122,10 @@
           <execution>
             <id>spotless-check</id>
             <goals>
+              <!-- 校验源码格式；自动修复使用 spotless:apply。 -->
               <goal>check</goal>
             </goals>
+            <!-- 编译前执行格式检查。 -->
             <phase>validate</phase>
           </execution>
         </executions>
