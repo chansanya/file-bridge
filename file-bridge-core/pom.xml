@@ -10,4 +10,5 @@
   </parent>
   <artifactId>file-bridge-core</artifactId>
   <name>file-bridge-core</name>
+  <!-- 核心模块刻意保持零第三方运行时依赖，避免领域层被具体框架污染。 -->
 </project>

@@ -11,6 +11,7 @@
   <artifactId>file-bridge-upload</artifactId>
   <name>file-bridge-upload</name>
   <dependencies>
+    <!-- 依赖核心服务接口、领域模型、仓储端口和存储 SPI。 -->
     <dependency>
       <groupId>io.github.chansan</groupId>
       <artifactId>file-bridge-core</artifactId>

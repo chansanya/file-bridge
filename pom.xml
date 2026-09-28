@@ -46,6 +46,7 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- 导入 Spring Boot BOM，统一 Spring、测试、数据库和常用三方库版本。 -->
       <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-dependencies</artifactId>
@@ -53,21 +54,25 @@
         <type>pom</type>
         <scope>import</scope>
       </dependency>
+      <!-- 统一管理 MinIO Java SDK 版本，具体依赖只在 MinIO 适配模块中引入。 -->
       <dependency>
         <groupId>io.minio</groupId>
         <artifactId>minio</artifactId>
         <version>${minio.version}</version>
       </dependency>
+      <!-- 统一管理阿里云 OSS Java SDK 版本，避免各模块自行声明版本。 -->
       <dependency>
         <groupId>com.aliyun.oss</groupId>
         <artifactId>aliyun-sdk-oss</artifactId>
         <version>${aliyun-oss.version}</version>
       </dependency>
+      <!-- 统一管理腾讯云 COS Java SDK 版本。 -->
       <dependency>
         <groupId>com.qcloud</groupId>
         <artifactId>cos_api</artifactId>
         <version>${tencent-cos.version}</version>
       </dependency>
+      <!-- 统一 Apache HttpClient 4 版本，解决阿里云 SDK 传递依赖的版本收敛冲突。 -->
       <dependency>
         <groupId>org.apache.httpcomponents</groupId>
         <artifactId>httpclient</artifactId>

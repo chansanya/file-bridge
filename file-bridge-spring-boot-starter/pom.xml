@@ -11,15 +11,18 @@
   <artifactId>file-bridge-spring-boot-starter</artifactId>
   <name>file-bridge-spring-boot-starter</name>
   <dependencies>
+    <!-- 引入 FileBridge 自动配置，是 Starter 的核心功能入口。 -->
     <dependency>
       <groupId>io.github.chansan</groupId>
       <artifactId>file-bridge-spring-boot-autoconfigure</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <!-- 提供 Spring Boot 基础运行环境、日志和自动配置基础依赖。 -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter</artifactId>
     </dependency>
+    <!-- 提供 DataSource、JDBC 和事务自动配置，支撑 JDBC 持久化实现。 -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-jdbc</artifactId>

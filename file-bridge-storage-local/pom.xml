@@ -11,16 +11,19 @@
   <artifactId>file-bridge-storage-local</artifactId>
   <name>file-bridge-storage-local</name>
   <dependencies>
+    <!-- 实现核心存储 SPI，并复用统一模型和异常。 -->
     <dependency>
       <groupId>io.github.chansan</groupId>
       <artifactId>file-bridge-core</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <!-- JUnit 5 测试框架，仅用于本地存储契约测试。 -->
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- 提供可读的文件内容、异常和状态断言。 -->
     <dependency>
       <groupId>org.assertj</groupId>
       <artifactId>assertj-core</artifactId>

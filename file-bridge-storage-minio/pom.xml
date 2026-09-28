@@ -11,15 +11,18 @@
   <artifactId>file-bridge-storage-minio</artifactId>
   <name>file-bridge-storage-minio</name>
   <dependencies>
+    <!-- 实现核心存储 SPI，并复用统一模型和异常。 -->
     <dependency>
       <groupId>io.github.chansan</groupId>
       <artifactId>file-bridge-core</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <!-- MinIO 官方 Java SDK，用于对象、签名 URL 和原生分片操作。 -->
     <dependency>
       <groupId>io.minio</groupId>
       <artifactId>minio</artifactId>
     </dependency>
+    <!-- 补充 MinIO SDK 在 Maven 下需要的 JVM 版 OkHttp 实现。 -->
     <dependency>
       <groupId>com.squareup.okhttp3</groupId>
       <artifactId>okhttp-jvm</artifactId>

@@ -11,11 +11,13 @@
   <artifactId>file-bridge-storage-aliyun</artifactId>
   <name>file-bridge-storage-aliyun</name>
   <dependencies>
+    <!-- 实现核心存储 SPI，并复用统一模型和异常。 -->
     <dependency>
       <groupId>io.github.chansan</groupId>
       <artifactId>file-bridge-core</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <!-- 阿里云官方 OSS SDK，用于对象和原生分片操作。 -->
     <dependency>
       <groupId>com.aliyun.oss</groupId>
       <artifactId>aliyun-sdk-oss</artifactId>

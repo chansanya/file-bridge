@@ -11,11 +11,13 @@
   <artifactId>file-bridge-storage-tencent</artifactId>
   <name>file-bridge-storage-tencent</name>
   <dependencies>
+    <!-- 实现核心存储 SPI，并复用统一模型和异常。 -->
     <dependency>
       <groupId>io.github.chansan</groupId>
       <artifactId>file-bridge-core</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <!-- 腾讯云官方 COS Java SDK，用于对象、签名 URL 和原生分片操作。 -->
     <dependency>
       <groupId>com.qcloud</groupId>
       <artifactId>cos_api</artifactId>
