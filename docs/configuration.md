@@ -8,9 +8,6 @@
 file-bridge:
   enabled: true
   default-storage: local-main
-  web:
-    enabled: true
-    base-path: /api/file-bridge
   upload:
     max-file-size: 2GB
     preferred-part-size: 8MB
@@ -63,20 +60,19 @@ storages:
 
 这样可以配置多个同类型实例。实例 ID 会写入对象元数据，切换默认存储不会改变历史对象的读取位置。
 
-## 3. Web 配置
+## 3. 独立示例工程配置
 
-| 配置项 | 默认值 | 说明 |
-| --- | --- | --- |
-| `file-bridge.web.enabled` | `true` | 是否注册 REST Controller；还需要引入 `file-bridge-web` |
-| `file-bridge.web.base-path` | `/api/file-bridge` | REST API 路径前缀 |
+Starter 不提供 Web Controller，因此没有 Starter 级别的 Web 开关。
 
-只通过 Java 服务调用时可以关闭：
+独立 `example` 工程自行定义以下示例属性：
 
 ```yaml
-file-bridge:
-  web:
-    enabled: false
+example:
+  file-bridge:
+    base-path: /api/file-bridge
 ```
+
+该属性只属于演示工程，用于设置示例 Controller 的路径前缀，不是 FileBridge Starter 的公共配置项。真实业务项目可以采用自己的路径、响应结构和鉴权方式。
 
 ## 4. 上传配置
 

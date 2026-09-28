@@ -1,6 +1,6 @@
 spring:
   application:
-    name: file-bridge-example
+    name: example
   profiles:
     active: demo
   datasource:
@@ -12,9 +12,6 @@ spring:
 file-bridge:
   enabled: true
   default-storage: local-main
-  web:
-    enabled: true
-    base-path: /api/file-bridge
   upload:
     max-file-size: 2GB
     preferred-part-size: 8MB
@@ -24,3 +21,7 @@ file-bridge:
       type: local
       root-path: ./data/files
       temp-path: ./data/uploads
+
+example:
+  file-bridge:
+    base-path: /api/file-bridge

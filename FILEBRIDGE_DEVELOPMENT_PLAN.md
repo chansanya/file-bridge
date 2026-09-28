@@ -13,7 +13,7 @@
 请阅读 FILEBRIDGE_DEVELOPMENT_PLAN.md，并按文档开发 FileBridge。
 先检查当前工程和已有约束，保留现有代码，不覆盖无关修改。
 从第一个未完成阶段开始，实际编写代码并验证，不只给出方案。
-按依赖顺序推进，每个阶段完成后更新 docs/PROGRESS.md。
+按依赖顺序推进，每个阶段完成后记录实际验证结果。
 没有真实云服务凭证时，完成适配实现和可执行测试，并明确标记尚未进行的真实环境验证。
 不要虚构测试结果，也不要把空实现、TODO 或固定成功返回当作已完成。
 常规实现选择自行判断，遇到影响兼容性、数据安全或现有业务的重大歧义再提出问题。
@@ -32,7 +32,7 @@
 - 存储适配：本地、MinIO、阿里云 OSS、腾讯云 COS。
 - 文件查询、下载、删除及按能力生成临时访问地址。
 - Spring Boot Starter 自动配置。
-- 可选 REST 接口，以及接入方直接调用 Java 服务的方式。
+- Starter 提供 Java 服务调用方式；独立 `example` 工程提供参考 REST 接口。
 - 过期任务、临时分片和无引用对象的清理。
 - 示例工程、原生 JavaScript 上传页面和接入文档。
 
@@ -53,7 +53,7 @@ V1 使用服务端中转上传；云存储适配优先使用平台原生分片�
 | 后端语言 | Java |
 | 构建 | Maven 多模块，统一依赖版本管理 |
 | Spring Boot | 先检查宿主工程；空工程在 M1 选择并固定一个受支持版本及匹配 JDK |
-| Web | Spring MVC；REST 模块可选 |
+| Web | Starter 不包含 Controller；独立 `example` 使用 Spring MVC 演示真实业务接入 |
 | 持久化 | JDBC 实现；示例以 MySQL 为目标，具体版本在 M1 固定 |
 | 云 SDK | 各平台官方 Java SDK，按需依赖，在实施时核对官方文档和兼容性 |
 | 示例前端 | HTML、CSS、原生 JavaScript，不使用 TypeScript |
@@ -78,10 +78,8 @@ file-bridge/
 ├── file-bridge-persistence-jdbc/
 ├── file-bridge-spring-boot-autoconfigure/
 ├── file-bridge-spring-boot-starter/
-├── file-bridge-web/
-├── file-bridge-example/
+├── example/
 └── docs/
-    ├── PROGRESS.md
     ├── architecture.md
     ├── api.md
     ├── configuration.md
@@ -97,10 +95,9 @@ file-bridge/
 | persistence-jdbc | 文件、引用、上传任务、分片的数据库实现 |
 | autoconfigure | 属性绑定、条件装配、用户 Bean 覆盖和启动校验 |
 | starter | 提供依赖入口，不堆放业务实现，不强制引入所有云 SDK |
-| web | 可选 Controller、参数校验和 HTTP 异常映射 |
-| example | 最小可运行示例及 JavaScript 上传演示 |
+| example | 独立 Spring Boot 工程，只依赖 Starter，提供参考 REST 和 JavaScript 上传演示 |
 
-模块依赖单向组织：核心不依赖适配器；业务流程依赖核心接口；自动配置负责组装。未引入某云 SDK 时，其他存储仍能正常启动。
+模块依赖单向组织：核心不依赖适配器；业务流程依赖核心接口；自动配置负责组装。未引入某云 SDK 时，其他存储仍能正常启动。`example` 不继承 FileBridge Parent，只通过 Starter 模拟真实业务工程接入。
 
 ## 5. 核心接口与职责
 
@@ -213,9 +210,9 @@ V1 云端最终摘要可采用服务端流式回读计算，需记录额外流�
 - 已完成任务重复 complete 返回同一个 fileId。
 - 取消和删除应可重试；对象已不存在可按幂等成功处理。
 
-## 8. REST 接口草案
+## 8. Example 参考 REST 接口
 
-默认路径前缀：`/api/file-bridge`，允许配置，Web 模块可关闭。
+独立 `example` 默认路径前缀为 `/api/file-bridge`。Starter 本身不注册 Controller；接入方可参考示例实现符合自身认证和响应规范的 REST 接口。
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
@@ -242,9 +239,6 @@ API 文档必须补充每个接口的请求、成功响应、失败响应、幂�
 file-bridge:
   enabled: true
   default-storage: local-main
-  web:
-    enabled: true
-    base-path: /api/file-bridge
   upload:
     max-file-size: 2GB
     preferred-part-size: 8MB
@@ -279,9 +273,8 @@ V1 本地适配器默认单实例运行。若多实例部署，必须有共享�
 - [ ] 定义核心模型、异常、SPI 和存储能力模型。
 - [ ] 定义身份、权限及持久化扩展接口。
 - [ ] 完成 Starter 基础装配和配置校验。
-- [ ] 创建 docs/PROGRESS.md，记录已完成项、决策和阻塞。
 
-验收：全工程构建通过；最小示例能够装配本地存储；未引入云 SDK 不导致启动失败。
+验收：全工程构建通过；独立 `example` 只通过 Starter 装配本地存储；未引入云 SDK 不导致启动失败。
 
 ### M2：普通上传闭环（3～4 天）
 
@@ -290,7 +283,7 @@ V1 本地适配器默认单实例运行。若多实例部署，必须有共享�
 - [ ] 实现物理对象与业务引用分离。
 - [ ] 实现大小限制、路径保护、权限检查。
 - [ ] 实现普通上传失败补偿。
-- [ ] 提供普通上传 API 与示例页面。
+- [ ] 在独立 `example` 中提供普通上传 API 与示例页面。
 
 验收：上传、查询、下载、删除闭环可运行；下载内容与原始内容一致；重名文件不覆盖；跨用户访问被拒绝。
 
@@ -331,7 +324,7 @@ V1 本地适配器默认单实例运行。若多实例部署，必须有共享�
 
 ### M6：文档、集成和 V1 收尾（3～5 天）
 
-- [ ] 完善 Bean 覆盖、配置校验和 Web 模块开关。
+- [ ] 完善 Bean 覆盖和配置校验，确保 `example` 只依赖 Starter。
 - [ ] 补齐 API、配置、接入及部署文档。
 - [ ] 提供数据库初始化脚本和示例配置。
 - [ ] 完善耗时、错误、待处理任务等日志与指标。
@@ -375,32 +368,3 @@ V1 本地适配器默认单实例运行。若多实例部署，必须有共享�
 10. 变更数据库结构时保留迁移方式，不自动删除用户数据。
 11. 每阶段执行能覆盖实际风险的构建与测试，并更新进度；无法执行的测试说明原因。
 12. 最后报告实际完成项、验证命令及结果、剩余风险和下一阶段，不把计划当成果。
-
-## 13. 进度记录模板
-
-将以下内容写入 docs/PROGRESS.md，并随实际开发更新：
-
-```markdown
-# FileBridge 开发进度
-
-## 当前阶段
-- M1：未开始
-
-## 已完成
-- 暂无
-
-## 技术决策
-- Java / Spring Boot / 数据库版本：待确定
-- 存储 SDK 版本：待确定
-- 包名前缀：待确定
-
-## 验证记录
-| 日期 | 命令或场景 | 结果 | 环境与限制 |
-| --- | --- | --- | --- |
-
-## 阻塞和未验证事项
-- 云存储真实环境凭证及测试 Bucket 待提供。
-
-## 下一步
-- 检查仓库并完成 M1。
-```

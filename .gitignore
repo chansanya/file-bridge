@@ -10,5 +10,5 @@ Thumbs.db
 *.log
 .env
 data/
-file-bridge-example/data/
+example/data/
 *:Zone.Identifier

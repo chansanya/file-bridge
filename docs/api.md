@@ -1,4 +1,4 @@
-# FileBridge REST API
+# Example REST API
 
 ## 1. 基础约定
 
@@ -10,14 +10,17 @@
 - UUID 使用标准字符串格式
 - 身份来自宿主可信上下文，接口不接受 `tenantId` 和 `ownerId`
 
-启用 REST 接口必须显式引入 `file-bridge-web`，并保持：
+本页描述的是独立 [`example`](../example) 工程提供的参考接口。Starter 本身不注册 REST Controller。
+
+示例路径配置：
 
 ```yaml
-file-bridge:
-  web:
-    enabled: true
+example:
+  file-bridge:
     base-path: /api/file-bridge
 ```
+
+真实业务工程可以参考示例自行调整接口路径、认证机制和响应协议。
 
 ## 2. 状态码约定
 

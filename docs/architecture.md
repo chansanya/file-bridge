@@ -24,10 +24,9 @@ FileBridge 采用端口与适配器结构，将文件业务流程、数据库持
 | `file-bridge-storage-minio` | MinIO 对象及原生分片操作 |
 | `file-bridge-storage-aliyun` | 阿里云 OSS 对象及原生分片操作 |
 | `file-bridge-storage-tencent` | 腾讯云 COS 对象及原生分片操作 |
-| `file-bridge-web` | 可选 REST Controller、请求 ID 和错误映射 |
 | `file-bridge-spring-boot-autoconfigure` | 属性绑定、条件装配、覆盖机制和启动校验 |
 | `file-bridge-spring-boot-starter` | Spring Boot 接入入口，不传递云 SDK |
-| `file-bridge-example` | MySQL、本地存储、Demo 身份和上传页面 |
+| `example` | 独立 Spring Boot 接入工程，包含参考 REST、Demo 身份和上传页面 |
 
 ## 3. 依赖方向
 
@@ -40,13 +39,15 @@ core
 ├── storage-aliyun
 └── storage-tencent
 
-web -> core + upload
 autoconfigure -> core + upload + persistence-jdbc + storage-local
 starter -> autoconfigure
-example -> starter + web
+
+example（独立 Parent） -> starter
 ```
 
 核心模块不反向依赖 Web、Spring 或具体存储 SDK。
+
+`example` 不继承 FileBridge Parent，也不依赖任何内部实现模块。它只通过 Starter 接入，用来验证公开集成边界是否足够。
 
 ## 4. 为什么必须有存储实例
 
@@ -165,5 +166,6 @@ CREATED -> UPLOADING -> COMPLETING -> VERIFYING -> COMPLETED
 - 创建用户或登录系统；
 - 默认放行文件权限；
 - 自动删除或重建数据库表；
+- 注册 REST Controller；
 - 自动引入所有云 SDK；
 - 自动迁移已有文件到新存储。

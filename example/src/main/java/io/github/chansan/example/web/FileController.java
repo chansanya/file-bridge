@@ -1,4 +1,4 @@
-package io.github.chansan.filebridge.web;
+package io.github.chansan.example.web;
 
 import io.github.chansan.filebridge.core.model.*;
 import io.github.chansan.filebridge.core.service.*;
@@ -13,7 +13,7 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 
 /** 普通文件 REST 接口。 */
 @RestController
-@RequestMapping("${file-bridge.web.base-path:/api/file-bridge}/files")
+@RequestMapping("${example.file-bridge.base-path:/api/file-bridge}/files")
 public final class FileController {
   private final FileService service;
 

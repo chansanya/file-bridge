@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.1.1</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>io.github.chansan.example</groupId>
+  <artifactId>example</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <name>Example</name>
+  <description>模拟独立业务工程接入 FileBridge Starter</description>
+
+  <properties>
+    <java.version>17</java.version>
+    <file-bridge.version>0.1.0-SNAPSHOT</file-bridge.version>
+    <google-java-format.version>1.25.2</google-java-format.version>
+    <sortpom.version>4.0.0</sortpom.version>
+    <spotless.version>3.10.3</spotless.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.github.chansan</groupId>
+      <artifactId>file-bridge-spring-boot-starter</artifactId>
+      <version>${file-bridge.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-mysql</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>com.github.ekryd.sortpom</groupId>
+        <artifactId>sortpom-maven-plugin</artifactId>
+        <version>${sortpom.version}</version>
+        <configuration>
+          <createBackupFile>false</createBackupFile>
+          <expandEmptyElements>false</expandEmptyElements>
+          <indentAttribute>schemaLocation</indentAttribute>
+          <keepBlankLines>true</keepBlankLines>
+          <verifyFail>stop</verifyFail>
+          <verifyFailOn>strict</verifyFailOn>
+        </configuration>
+        <executions>
+          <execution>
+            <id>sort-pom-check</id>
+            <goals>
+              <goal>verify</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless.version}</version>
+        <configuration>
+          <java>
+            <googleJavaFormat>
+              <version>${google-java-format.version}</version>
+            </googleJavaFormat>
+            <removeUnusedImports/>
+            <trimTrailingWhitespace/>
+            <endWithNewline/>
+          </java>
+        </configuration>
+        <executions>
+          <execution>
+            <id>spotless-check</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

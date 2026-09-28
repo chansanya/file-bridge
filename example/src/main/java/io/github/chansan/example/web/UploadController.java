@@ -1,4 +1,4 @@
-package io.github.chansan.filebridge.web;
+package io.github.chansan.example.web;
 
 import io.github.chansan.filebridge.core.model.*;
 import io.github.chansan.filebridge.core.service.*;
@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 /** 分片上传 REST 接口。 */
 @RestController
-@RequestMapping("${file-bridge.web.base-path:/api/file-bridge}/uploads")
+@RequestMapping("${example.file-bridge.base-path:/api/file-bridge}/uploads")
 public final class UploadController {
   private final UploadService service;
 

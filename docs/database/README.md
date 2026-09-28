@@ -42,7 +42,7 @@ src/main/resources/db/migration/file-bridge/
 
 然后把该目录加入宿主 Flyway 配置，并确保版本号不会与宿主已有迁移冲突。
 
-Starter 不引入 Flyway，也不会主动执行迁移。示例工程为了方便本地运行，显式引入并启用了 Flyway。
+Starter 不引入 Flyway，也不会主动执行迁移。独立 `example` 工程为了方便本地运行，显式引入并启用了 Flyway。
 
 ## 核心表
 

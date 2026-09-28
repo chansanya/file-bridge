@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.chansan</groupId>
   <artifactId>file-bridge-parent</artifactId>
@@ -9,7 +9,12 @@
   <name>FileBridge</name>
   <description>Spring Boot 可集成的通用文件服务组件</description>
   <url>https://github.com/chansan/file-bridge</url>
-  <licenses><license><name>MIT License</name><url>https://opensource.org/licenses/MIT</url></license></licenses>
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/licenses/MIT</url>
+    </license>
+  </licenses>
 
   <modules>
     <module>file-bridge-core</module>
@@ -19,10 +24,9 @@
     <module>file-bridge-storage-minio</module>
     <module>file-bridge-storage-aliyun</module>
     <module>file-bridge-storage-tencent</module>
-    <module>file-bridge-web</module>
     <module>file-bridge-spring-boot-autoconfigure</module>
     <module>file-bridge-spring-boot-starter</module>
-    <module>file-bridge-example</module>
+    <module>example</module>
   </modules>
 
   <properties>
@@ -36,47 +40,147 @@
     <httpclient4.version>4.5.14</httpclient4.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
     <spotless.version>3.10.3</spotless.version>
+    <sortpom.version>4.0.0</sortpom.version>
     <google-java-format.version>1.25.2</google-java-format.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
       <dependency>
-        <groupId>org.springframework.boot</groupId><artifactId>spring-boot-dependencies</artifactId>
-        <version>${spring-boot.version}</version><type>pom</type><scope>import</scope>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring-boot.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
       </dependency>
-      <dependency><groupId>io.minio</groupId><artifactId>minio</artifactId><version>${minio.version}</version></dependency>
-      <dependency><groupId>com.aliyun.oss</groupId><artifactId>aliyun-sdk-oss</artifactId><version>${aliyun-oss.version}</version></dependency>
-      <dependency><groupId>com.qcloud</groupId><artifactId>cos_api</artifactId><version>${tencent-cos.version}</version></dependency>
-      <dependency><groupId>org.apache.httpcomponents</groupId><artifactId>httpclient</artifactId><version>${httpclient4.version}</version></dependency>
+      <dependency>
+        <groupId>io.minio</groupId>
+        <artifactId>minio</artifactId>
+        <version>${minio.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.aliyun.oss</groupId>
+        <artifactId>aliyun-sdk-oss</artifactId>
+        <version>${aliyun-oss.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.qcloud</groupId>
+        <artifactId>cos_api</artifactId>
+        <version>${tencent-cos.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.httpcomponents</groupId>
+        <artifactId>httpclient</artifactId>
+        <version>${httpclient4.version}</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
   <build>
     <pluginManagement>
       <plugins>
-        <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.14.1</version><configuration><release>${java.version}</release><parameters>true</parameters></configuration></plugin>
-        <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.4</version></plugin>
-        <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId><version>3.5.4</version></plugin>
-        <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-enforcer-plugin</artifactId><version>3.6.2</version></plugin>
-        <plugin><groupId>com.diffplug.spotless</groupId><artifactId>spotless-maven-plugin</artifactId><version>${spotless.version}</version></plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.14.1</version>
+          <configuration>
+            <release>${java.version}</release>
+            <parameters>true</parameters>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.5.4</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <version>3.5.4</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.6.2</version>
+        </plugin>
+        <plugin>
+          <groupId>com.diffplug.spotless</groupId>
+          <artifactId>spotless-maven-plugin</artifactId>
+          <version>${spotless.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>com.github.ekryd.sortpom</groupId>
+          <artifactId>sortpom-maven-plugin</artifactId>
+          <version>${sortpom.version}</version>
+        </plugin>
       </plugins>
     </pluginManagement>
     <plugins>
-      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-enforcer-plugin</artifactId><executions><execution><id>enforce</id><goals><goal>enforce</goal></goals><configuration><rules><requireJavaVersion><version>[17,)</version></requireJavaVersion><requireMavenVersion><version>[3.9.0,)</version></requireMavenVersion><dependencyConvergence/></rules></configuration></execution></executions></plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <version>[17,)</version>
+                </requireJavaVersion>
+                <requireMavenVersion>
+                  <version>[3.9.0,)</version>
+                </requireMavenVersion>
+                <dependencyConvergence/>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>com.github.ekryd.sortpom</groupId>
+        <artifactId>sortpom-maven-plugin</artifactId>
+        <configuration>
+          <createBackupFile>false</createBackupFile>
+          <expandEmptyElements>false</expandEmptyElements>
+          <indentAttribute>schemaLocation</indentAttribute>
+          <keepBlankLines>true</keepBlankLines>
+          <verifyFail>stop</verifyFail>
+          <verifyFailOn>strict</verifyFailOn>
+        </configuration>
+        <executions>
+          <execution>
+            <id>sort-pom-check</id>
+            <goals>
+              <goal>verify</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
         <artifactId>spotless-maven-plugin</artifactId>
         <configuration>
           <java>
-            <googleJavaFormat><version>${google-java-format.version}</version></googleJavaFormat>
+            <googleJavaFormat>
+              <version>${google-java-format.version}</version>
+            </googleJavaFormat>
             <removeUnusedImports/>
             <trimTrailingWhitespace/>
             <endWithNewline/>
           </java>
         </configuration>
         <executions>
-          <execution><id>spotless-check</id><phase>validate</phase><goals><goal>check</goal></goals></execution>
+          <execution>
+            <id>spotless-check</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
         </executions>
       </plugin>
     </plugins>

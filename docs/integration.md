@@ -32,30 +32,24 @@ Starter 默认提供：
 - 本地文件系统适配器
 - Spring Boot 自动配置
 
-### 2.2 启用 REST 接口
+### 2.2 REST 接口与独立示例工程
 
-REST 模块不是 Starter 的强制传递依赖，需要显式引入：
+Starter 只提供 Java 服务能力，不包含 Controller、Servlet Filter 或 HTTP 异常映射。
 
-```xml
-<dependency>
-  <groupId>io.github.chansan</groupId>
-  <artifactId>file-bridge-web</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
-</dependency>
-```
+仓库中的 [`example`](../example) 是一个独立 Spring Boot 工程：
 
-宿主应用还需要 Spring MVC 和校验能力，通常由以下依赖提供：
+- 使用 `spring-boot-starter-parent`，不继承 FileBridge Parent；
+- 只依赖公开入口 `file-bridge-spring-boot-starter`；
+- 自己定义 REST Controller、错误响应和请求过滤器；
+- 模拟真实业务项目如何封装自己的 HTTP API。
 
-```xml
-<dependency>
-  <groupId>org.springframework.boot</groupId>
-  <artifactId>spring-boot-starter-web</artifactId>
-</dependency>
+`example` 不是供其他项目引入的依赖。接入方如果需要 REST，可以参考其中的 Controller，根据自己的认证、响应格式和接口规范进行实现。
 
-<dependency>
-  <groupId>org.springframework.boot</groupId>
-  <artifactId>spring-boot-starter-validation</artifactId>
-</dependency>
+本地运行独立示例前，先将 Starter 安装到本地 Maven 仓库：
+
+```bash
+./mvnw install -DskipTests -pl file-bridge-spring-boot-starter -am
+./mvnw -f example/pom.xml spring-boot:run
 ```
 
 ## 3. 初始化数据库
@@ -269,7 +263,7 @@ file-bridge:
 - [ ] 本地目录可创建、可读、可写，或云存储凭证有效
 - [ ] 已提供 `CurrentActorProvider`
 - [ ] 已提供 `FileAccessPolicy`
-- [ ] 需要 REST 时已引入 `file-bridge-web`
+- [ ] 需要 REST 时已参考 `example` 在业务工程中实现 Controller
 - [ ] 使用云存储时已引入对应 `storage-*` 模块
 - [ ] 密钥来自环境变量或宿主密钥系统，而不是提交到仓库
 

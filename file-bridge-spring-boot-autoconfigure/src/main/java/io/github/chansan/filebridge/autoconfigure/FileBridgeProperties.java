@@ -11,7 +11,6 @@ import org.springframework.util.unit.DataSize;
 public class FileBridgeProperties {
   private boolean enabled = true;
   private String defaultStorage = "local-main";
-  private Web web = new Web();
   private Upload upload = new Upload();
   private Cleanup cleanup = new Cleanup();
   private Deduplication deduplication = new Deduplication();
@@ -31,14 +30,6 @@ public class FileBridgeProperties {
 
   public void setDefaultStorage(String v) {
     defaultStorage = v;
-  }
-
-  public Web getWeb() {
-    return web;
-  }
-
-  public void setWeb(Web v) {
-    web = v;
   }
 
   public Upload getUpload() {
@@ -71,27 +62,6 @@ public class FileBridgeProperties {
 
   public void setStorages(Map<String, Storage> v) {
     storages = v;
-  }
-
-  public static class Web {
-    private boolean enabled = true;
-    private String basePath = "/api/file-bridge";
-
-    public boolean isEnabled() {
-      return enabled;
-    }
-
-    public void setEnabled(boolean v) {
-      enabled = v;
-    }
-
-    public String getBasePath() {
-      return basePath;
-    }
-
-    public void setBasePath(String v) {
-      basePath = v;
-    }
   }
 
   public static class Upload {

@@ -10,7 +10,8 @@ FileBridge 是一个可嵌入 Spring Boot 的通用文件服务组件，提供�
 - 用户或租户授权范围内的秒传
 - 本地文件系统、MinIO、阿里云 OSS、腾讯云 COS
 - JDBC 持久化和 MySQL 8.4 数据库脚本
-- Spring Boot 自动配置、Java 服务接口和可选 REST 接口
+- Spring Boot 自动配置和 Java 服务接口
+- 独立 `example` 工程演示真实 Starter 接入和 REST 封装
 
 ## 技术基线
 
@@ -71,11 +72,14 @@ file-bridge:
 
 ```bash
 docker compose up -d mysql
-./mvnw -pl file-bridge-example -am spring-boot:run
+./mvnw install -DskipTests -pl file-bridge-spring-boot-starter -am
+./mvnw -f example/pom.xml spring-boot:run
 ```
 
 示例页面：<http://localhost:8080/>
 
+> `example` 使用独立 Spring Boot Parent，只通过 `file-bridge-spring-boot-starter` 接入组件，不依赖 FileBridge 内部模块。
+>
 > `demo` Profile 中的固定身份和权限策略只用于本地演示，禁止直接用于生产环境。
 
 ## 代码格式

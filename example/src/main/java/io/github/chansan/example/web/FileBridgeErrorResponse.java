@@ -1,4 +1,4 @@
-package io.github.chansan.filebridge.web;
+package io.github.chansan.example.web;
 
 /**
  * 统一 HTTP 错误出参。

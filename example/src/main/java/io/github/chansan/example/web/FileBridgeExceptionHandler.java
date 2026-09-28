@@ -1,4 +1,4 @@
-package io.github.chansan.filebridge.web;
+package io.github.chansan.example.web;
 
 import io.github.chansan.filebridge.core.error.*;
 import jakarta.servlet.http.HttpServletRequest;

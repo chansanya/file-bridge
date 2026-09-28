@@ -1,4 +1,4 @@
-package io.github.chansan.filebridge.web;
+package io.github.chansan.example.web;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
