@@ -256,9 +256,7 @@ public class FileBridgeAutoConfiguration {
         k,
         scope,
         p.getUpload().getPreferredPartSize().toBytes(),
-        p.getUpload().getTaskTtl(),
-        p.getUpload().getLeaseDuration(),
-        UUID.randomUUID().toString());
+        p.getUpload().getTaskTtl());
   }
 
   /**

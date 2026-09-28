@@ -14,6 +14,7 @@
 | 1 | `V1__file_objects_and_references.sql` | 物理对象、业务引用、幂等记录 |
 | 2 | `V2__multipart_upload.sql` | 上传任务和分片记录 |
 | 3 | `V3__cleanup_and_reconciliation.sql` | 对账问题记录 |
+| 4 | `V4__upload_completion_retry.sql` | 完成任务重试、退避和错误记录 |
 
 必须按顺序执行，不要跳过中间版本，也不要修改已经在生产环境执行过的脚本。
 

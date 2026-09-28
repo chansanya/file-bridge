@@ -24,8 +24,6 @@ public final class DefaultUploadService implements UploadService {
   private final DeduplicationScope deduplicationScope;
   private final long preferredPartSize;
   private final Duration taskTtl;
-  private final Duration leaseDuration;
-  private final String workerId;
 
   /**
    * 创建默认分片上传服务。
@@ -43,8 +41,6 @@ public final class DefaultUploadService implements UploadService {
    * @param scope 秒传授权范围
    * @param preferredPartSize 推荐分片字节数
    * @param taskTtl 任务保留时长
-   * @param leaseDuration 完成租约时长
-   * @param workerId 工作器标识
    */
   public DefaultUploadService(
       UploadRepository uploads,
@@ -59,9 +55,7 @@ public final class DefaultUploadService implements UploadService {
       ObjectKeyGenerator keys,
       DeduplicationScope scope,
       long preferredPartSize,
-      Duration taskTtl,
-      Duration leaseDuration,
-      String workerId) {
+      Duration taskTtl) {
     this.uploads = uploads;
     this.files = files;
     this.idempotency = idempotency;
@@ -75,8 +69,6 @@ public final class DefaultUploadService implements UploadService {
     this.deduplicationScope = scope;
     this.preferredPartSize = preferredPartSize;
     this.taskTtl = taskTtl;
-    this.leaseDuration = leaseDuration;
-    this.workerId = workerId;
   }
 
   /**
@@ -281,8 +273,7 @@ public final class DefaultUploadService implements UploadService {
       throw new FileBridgeException(
           FileBridgeErrorCode.INVALID_UPLOAD_STATE, "Not all parts are uploaded");
     Instant requestedAt = Instant.now();
-    // 使用立即过期的占位租约提交后台任务，实际工作器随后竞争正式租约。
-    uploads.acquireCompletionLease(id, workerId, requestedAt, requestedAt);
+    uploads.requestCompletion(id, requestedAt);
     return view(uploads.findTask(id).orElse(t));
   }
 

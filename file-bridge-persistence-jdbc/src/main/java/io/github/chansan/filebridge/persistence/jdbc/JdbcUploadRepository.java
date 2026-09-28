@@ -140,12 +140,23 @@ public final class JdbcUploadRepository implements UploadRepository {
    * @return 当前执行者成功持有租约时返回 {@code true}
    */
   @Override
+  public boolean requestCompletion(UUID id, Instant now) {
+    return jdbc.update(
+            "UPDATE fb_upload_task SET status='COMPLETING',lease_owner=NULL,lease_until=NULL,"
+                + "next_attempt_at=:now,last_error=NULL,version=version+1,updated_at=:now "
+                + "WHERE id=:id AND status IN ('CREATED','UPLOADING')",
+            Map.of("id", id.toString(), "now", ts(now)))
+        == 1;
+  }
+
+  @Override
   public boolean acquireCompletionLease(UUID id, String owner, Instant until, Instant now) {
     return jdbc.update(
-            "UPDATE fb_upload_task SET"
-                + " status='COMPLETING',lease_owner=:owner,lease_until=:until,version=version+1,updated_at=:now"
-                + " WHERE id=:id AND (status IN ('CREATED','UPLOADING') OR (status IN"
-                + " ('COMPLETING','VERIFYING') AND lease_until<:now))",
+            "UPDATE fb_upload_task SET lease_owner=:owner,lease_until=:until,"
+                + "completion_attempts=completion_attempts+1,version=version+1,updated_at=:now "
+                + "WHERE id=:id AND status IN ('COMPLETING','VERIFYING') "
+                + "AND (lease_owner IS NULL OR lease_until<:now) "
+                + "AND (next_attempt_at IS NULL OR next_attempt_at<=:now)",
             Map.of("id", id.toString(), "owner", owner, "until", ts(until), "now", ts(now)))
         == 1;
   }
@@ -158,6 +169,33 @@ public final class JdbcUploadRepository implements UploadRepository {
    * @param now 当前时间
    * @return 状态和租约匹配时返回 {@code true}
    */
+  @Override
+  public boolean renewCompletionLease(UUID id, String owner, Instant until, Instant now) {
+    return jdbc.update(
+            "UPDATE fb_upload_task SET lease_until=:until,updated_at=:now "
+                + "WHERE id=:id AND lease_owner=:owner AND status IN ('COMPLETING','VERIFYING')",
+            Map.of("id", id.toString(), "owner", owner, "until", ts(until), "now", ts(now)))
+        == 1;
+  }
+
+  @Override
+  public void retryCompletion(
+      UUID id, String owner, String error, Instant nextAttemptAt, int maxAttempts, Instant now) {
+    jdbc.update(
+        "UPDATE fb_upload_task SET "
+            + "status=CASE WHEN completion_attempts>=:maxAttempts THEN 'FAILED' ELSE 'COMPLETING' END,"
+            + "lease_owner=NULL,lease_until=NULL,next_attempt_at=:nextAttempt,last_error=:error,"
+            + "version=version+1,updated_at=:now "
+            + "WHERE id=:id AND lease_owner=:owner AND status IN ('COMPLETING','VERIFYING')",
+        new MapSqlParameterSource()
+            .addValue("id", id.toString())
+            .addValue("owner", owner)
+            .addValue("error", abbreviate(error))
+            .addValue("nextAttempt", ts(nextAttemptAt))
+            .addValue("maxAttempts", maxAttempts)
+            .addValue("now", ts(now)));
+  }
+
   @Override
   public boolean moveToVerifying(UUID id, String owner, Instant now) {
     return jdbc.update(
@@ -211,12 +249,16 @@ public final class JdbcUploadRepository implements UploadRepository {
    * @param now 当前时间
    */
   @Override
-  public void fail(UUID id, String owner, Instant now) {
+  public void fail(UUID id, String owner, String error, Instant now) {
     jdbc.update(
-        "UPDATE fb_upload_task SET"
-            + " status='FAILED',lease_owner=NULL,lease_until=NULL,version=version+1,updated_at=:now"
-            + " WHERE id=:id AND lease_owner=:owner AND status IN ('COMPLETING','VERIFYING')",
-        Map.of("id", id.toString(), "owner", owner, "now", ts(now)));
+        "UPDATE fb_upload_task SET status='FAILED',lease_owner=NULL,lease_until=NULL,"
+            + "last_error=:error,version=version+1,updated_at=:now "
+            + "WHERE id=:id AND lease_owner=:owner AND status IN ('COMPLETING','VERIFYING')",
+        new MapSqlParameterSource()
+            .addValue("id", id.toString())
+            .addValue("owner", owner)
+            .addValue("error", abbreviate(error))
+            .addValue("now", ts(now)));
   }
 
   /**
@@ -229,8 +271,9 @@ public final class JdbcUploadRepository implements UploadRepository {
   @Override
   public List<UploadTask> findCompletableOrExpiredLeases(Instant now, int limit) {
     return jdbc.query(
-        "SELECT * FROM fb_upload_task WHERE status='COMPLETING' OR (status='VERIFYING' AND"
-            + " lease_until<:now) ORDER BY updated_at LIMIT "
+        "SELECT * FROM fb_upload_task WHERE status IN ('COMPLETING','VERIFYING') "
+            + "AND (lease_owner IS NULL OR lease_until<:now) "
+            + "AND (next_attempt_at IS NULL OR next_attempt_at<=:now) ORDER BY updated_at LIMIT "
             + safeLimit(limit),
         Map.of("now", ts(now)),
         TASK);
@@ -259,6 +302,11 @@ public final class JdbcUploadRepository implements UploadRepository {
    * @param v 调用方传入的数量上限
    * @return 合法数量上限
    */
+  private static String abbreviate(String value) {
+    if (value == null) return null;
+    return value.substring(0, Math.min(1000, value.length()));
+  }
+
   private static int safeLimit(int v) {
     if (v < 1 || v > 1000) throw new IllegalArgumentException("limit must be between 1 and 1000");
     return v;

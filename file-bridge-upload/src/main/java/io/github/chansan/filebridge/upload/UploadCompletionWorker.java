@@ -8,15 +8,19 @@ import java.io.*;
 import java.security.*;
 import java.time.*;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** 通过数据库租约协调的上传完成工作器。 */
-public final class UploadCompletionWorker {
+public final class UploadCompletionWorker implements AutoCloseable {
   private final UploadRepository uploads;
   private final FileRepository files;
   private final StorageRegistry storages;
   private final TransactionRunner tx;
   private final String workerId;
+  private static final int MAX_COMPLETION_ATTEMPTS = 3;
   private final Duration lease;
+  private final ScheduledExecutorService heartbeatExecutor;
 
   /**
    * 创建上传完成工作器。
@@ -41,6 +45,13 @@ public final class UploadCompletionWorker {
     this.tx = tx;
     this.workerId = workerId;
     this.lease = lease;
+    this.heartbeatExecutor =
+        Executors.newSingleThreadScheduledExecutor(
+            runnable -> {
+              Thread thread = new Thread(runnable, "file-bridge-lease-heartbeat");
+              thread.setDaemon(true);
+              return thread;
+            });
   }
 
   /**
@@ -65,71 +76,138 @@ public final class UploadCompletionWorker {
    */
   public boolean process(UploadTask snapshot) {
     Instant now = Instant.now();
-    // 数据库条件更新是多实例之间唯一的完成权仲裁，不能依赖进程内锁。
-    if (!uploads.acquireCompletionLease(snapshot.id(), workerId, now.plus(lease), now))
+    if (!uploads.acquireCompletionLease(snapshot.id(), workerId, now.plus(lease), now)) {
       return false;
-    UploadTask t = uploads.findTask(snapshot.id()).orElseThrow();
+    }
+
+    UploadTask task = uploads.findTask(snapshot.id()).orElseThrow();
+    AtomicBoolean leaseLost = new AtomicBoolean(false);
+    long heartbeatMillis = Math.max(1000, lease.toMillis() / 3);
+    ScheduledFuture<?> heartbeat =
+        heartbeatExecutor.scheduleAtFixedRate(
+            () -> {
+              Instant heartbeatNow = Instant.now();
+              boolean renewed =
+                  uploads.renewCompletionLease(
+                      task.id(), workerId, heartbeatNow.plus(lease), heartbeatNow);
+              if (!renewed) leaseLost.set(true);
+            },
+            heartbeatMillis,
+            heartbeatMillis,
+            TimeUnit.MILLISECONDS);
+
     try {
-      MultipartStorageProvider p = (MultipartStorageProvider) storages.require(t.storageId());
-      List<UploadPart> db = uploads.findCompletedParts(t.id());
+      StorageProvider storage = storages.require(task.storageId());
+      if (!(storage instanceof MultipartStorageProvider multipart)) {
+        throw new FileBridgeException(
+            FileBridgeErrorCode.CAPABILITY_NOT_SUPPORTED,
+            "Storage does not support multipart completion");
+      }
       List<UploadedPart> parts =
-          db.stream()
+          uploads.findCompletedParts(task.id()).stream()
               .sorted(Comparator.comparingInt(UploadPart::partNumber))
-              .map(v -> new UploadedPart(v.partNumber(), v.size(), v.sha256(), v.providerPartTag()))
+              .map(
+                  part ->
+                      new UploadedPart(
+                          part.partNumber(), part.size(), part.sha256(), part.providerPartTag()))
               .toList();
-      // 平台完成分片后必须重新读取最终对象，不能拼接分片摘要冒充整文件摘要。
       StoredObject stored =
-          p.completeMultipart(
-              new MultipartUploadHandle(t.providerUploadId(), t.objectKey()),
+          multipart.completeMultipart(
+              new MultipartUploadHandle(task.providerUploadId(), task.objectKey()),
               parts,
-              t.contentType());
-      uploads.moveToVerifying(t.id(), workerId, Instant.now());
-      Verified v = verify(p, stored.location());
-      if (v.size != t.expectedSize()
-          || (t.claimedSha256() != null && !t.claimedSha256().equals(v.sha)))
+              task.contentType());
+      requireLease(leaseLost);
+      if (!uploads.moveToVerifying(task.id(), workerId, Instant.now())) {
+        throw new FileBridgeException(
+            FileBridgeErrorCode.INVALID_UPLOAD_STATE, "Completion lease was lost");
+      }
+
+      Verified verified = verify(multipart, stored.location());
+      requireLease(leaseLost);
+      if (verified.size != task.expectedSize()
+          || (task.claimedSha256() != null && !task.claimedSha256().equals(verified.sha))) {
         throw new FileBridgeException(
             FileBridgeErrorCode.CHECKSUM_MISMATCH,
             "Completed object does not match expected size or checksum");
+      }
+
       Instant completed = Instant.now();
-      UUID objectId = UUID.randomUUID(), fileId = UUID.randomUUID();
+      UUID objectId = UUID.randomUUID();
+      UUID fileId = UUID.randomUUID();
       StorageObjectRecord object =
           new StorageObjectRecord(
               objectId,
               stored.location(),
-              v.size,
-              v.sha,
-              t.contentType(),
+              verified.size,
+              verified.sha,
+              task.contentType(),
               StorageObjectStatus.AVAILABLE,
               completed,
               completed,
               completed,
               0);
-      FileReference ref =
+      FileReference reference =
           new FileReference(
               fileId,
               objectId,
-              t.tenantId(),
-              t.ownerId(),
-              t.originalName(),
-              t.businessType(),
-              t.businessId(),
+              task.tenantId(),
+              task.ownerId(),
+              task.originalName(),
+              task.businessType(),
+              task.businessId(),
               FileReferenceStatus.ACTIVE,
               completed,
               null);
-      // 发布对象、创建业务引用和写入唯一完成结果必须处于同一事务。
       tx.required(
           () -> {
             files.insertObject(object);
-            files.insertReference(ref);
-            if (!uploads.complete(t.id(), workerId, fileId, completed))
+            files.insertReference(reference);
+            if (!uploads.complete(task.id(), workerId, fileId, completed)) {
               throw new FileBridgeException(
                   FileBridgeErrorCode.INVALID_UPLOAD_STATE, "Completion lease was lost");
+            }
           });
       return true;
-    } catch (RuntimeException e) {
-      uploads.fail(t.id(), workerId, Instant.now());
+    } catch (RuntimeException error) {
+      Instant failedAt = Instant.now();
+      String message =
+          error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+      if (isPermanent(error)) {
+        uploads.fail(task.id(), workerId, message, failedAt);
+      } else {
+        uploads.retryCompletion(
+            task.id(),
+            workerId,
+            message,
+            failedAt.plus(Duration.ofMinutes(1)),
+            MAX_COMPLETION_ATTEMPTS,
+            failedAt);
+      }
       return false;
+    } finally {
+      heartbeat.cancel(false);
     }
+  }
+
+  private static void requireLease(AtomicBoolean leaseLost) {
+    if (leaseLost.get()) {
+      throw new FileBridgeException(
+          FileBridgeErrorCode.INVALID_UPLOAD_STATE, "Completion lease was lost");
+    }
+  }
+
+  private static boolean isPermanent(RuntimeException error) {
+    if (!(error instanceof FileBridgeException fileBridgeError)) return false;
+    return switch (fileBridgeError.code()) {
+      case CHECKSUM_MISMATCH,
+          INVALID_PART,
+          INVALID_REQUEST,
+          INVALID_UPLOAD_STATE,
+          CAPABILITY_NOT_SUPPORTED,
+          CONFIGURATION_ERROR ->
+          true;
+      default -> false;
+    };
   }
 
   /**
@@ -164,5 +242,10 @@ public final class UploadCompletionWorker {
    * @param size 实际字节数
    * @param sha 实际内容 SHA-256
    */
+  @Override
+  public void close() {
+    heartbeatExecutor.shutdownNow();
+  }
+
   private record Verified(long size, String sha) {}
 }

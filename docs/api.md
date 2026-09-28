@@ -42,10 +42,11 @@ Example 上传控制台默认按文件大小选择接口：
 | `201 Created` | 普通上传成功或新建分片任务 |
 | `202 Accepted` | 已提交后台合并和最终校验 |
 | `204 No Content` | 分片上传成功、取消成功或删除成功 |
-| `400 Bad Request` | 参数、摘要、分片序号、长度或文件大小非法 |
+| `400 Bad Request` | 参数、摘要、分片序号或长度非法 |
 | `401 Unauthorized` | 当前请求没有可信身份 |
 | `404 Not Found` | 资源不存在或当前身份无权访问 |
 | `409 Conflict` | 幂等键冲突、分片内容冲突或状态冲突 |
+| `413 Payload Too Large` | 文件超过服务端大小限制 |
 | `501 Not Implemented` | 当前存储不支持相关能力，例如本地存储签名 URL |
 | `503 Service Unavailable` | 存储或数据库故障 |
 
@@ -73,7 +74,7 @@ X-Request-Id: 4428dc19-55a0-4a13-bf69-8ad955d497dd
 | `ACCESS_DENIED` | 无权访问资源，对外按 404 处理 |
 | `FILE_NOT_FOUND` | 文件不存在或不可用 |
 | `UPLOAD_NOT_FOUND` | 上传任务不存在 |
-| `FILE_TOO_LARGE` | 文件超过大小限制；当前 Example 映射为 400 |
+| `FILE_TOO_LARGE` | 文件超过大小限制，映射为 413 |
 | `IDEMPOTENCY_CONFLICT` | 同一幂等键对应不同请求 |
 | `INVALID_PART` | 分片序号或大小错误 |
 | `UPLOAD_PART_CONFLICT` | 同序号已存在不同内容 |

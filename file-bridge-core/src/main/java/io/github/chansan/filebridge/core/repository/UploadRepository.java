@@ -52,6 +52,15 @@ public interface UploadRepository {
   boolean markUploading(UUID uploadId, long version, Instant now);
 
   /**
+   * 提交后台完成请求，但不占用工作器租约。
+   *
+   * @param uploadId 上传任务 ID
+   * @param now 当前时间
+   * @return 成功切换到等待完成状态时返回 {@code true}
+   */
+  boolean requestCompletion(UUID uploadId, Instant now);
+
+  /**
    * 通过条件更新获取完成处理租约。
    *
    * @param uploadId 上传任务 ID
@@ -61,6 +70,35 @@ public interface UploadRepository {
    * @return 当前执行者成功持有租约时返回 {@code true}
    */
   boolean acquireCompletionLease(UUID uploadId, String owner, Instant leaseUntil, Instant now);
+
+  /**
+   * 续期当前工作器持有的完成租约。
+   *
+   * @param uploadId 上传任务 ID
+   * @param owner 租约持有者
+   * @param leaseUntil 新租约截止时间
+   * @param now 当前时间
+   * @return 当前工作器仍持有租约并续期成功时返回 {@code true}
+   */
+  boolean renewCompletionLease(UUID uploadId, String owner, Instant leaseUntil, Instant now);
+
+  /**
+   * 记录可重试失败并释放租约。
+   *
+   * @param uploadId 上传任务 ID
+   * @param owner 租约持有者
+   * @param error 错误摘要
+   * @param nextAttemptAt 下次重试时间
+   * @param maxAttempts 最大尝试次数
+   * @param now 当前时间
+   */
+  void retryCompletion(
+      UUID uploadId,
+      String owner,
+      String error,
+      Instant nextAttemptAt,
+      int maxAttempts,
+      Instant now);
 
   /**
    * 将任务切换到最终对象校验阶段。
@@ -99,7 +137,7 @@ public interface UploadRepository {
    * @param owner 租约持有者
    * @param now 当前时间
    */
-  void fail(UUID uploadId, String owner, Instant now);
+  void fail(UUID uploadId, String owner, String error, Instant now);
 
   /**
    * 查询等待完成或租约已经过期的任务。
