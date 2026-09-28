@@ -1,5 +1,6 @@
 package io.github.chansan.filebridge.persistence.jdbc;
 
+import io.github.chansan.filebridge.core.error.*;
 import io.github.chansan.filebridge.core.model.*;
 import io.github.chansan.filebridge.core.repository.FileRepository;
 import java.sql.*;
@@ -55,23 +56,33 @@ public final class JdbcFileRepository implements FileRepository {
    * @return 已保存引用
    */
   @Override
-  public FileReference insertReference(FileReference r) {
+  public FileReference insertReference(FileReference reference) {
+    int inserted =
+        jdbc.update(
+            "INSERT INTO fb_file_reference"
+                + "(id,object_id,tenant_id,owner_id,original_name,business_type,business_id,status,created_at,deleted_at) "
+                + "SELECT :id,:oid,:tenant,:owner,:name,:bt,:bid,:status,:created,:deleted "
+                + "FROM fb_storage_object WHERE id=:oid AND status='AVAILABLE'",
+            new MapSqlParameterSource()
+                .addValue("id", s(reference.id()))
+                .addValue("oid", s(reference.objectId()))
+                .addValue("tenant", reference.tenantId())
+                .addValue("owner", reference.ownerId())
+                .addValue("name", reference.originalName())
+                .addValue("bt", reference.businessType())
+                .addValue("bid", reference.businessId())
+                .addValue("status", reference.status().name())
+                .addValue("created", ts(reference.createdAt()))
+                .addValue("deleted", ts(reference.deletedAt())));
+    if (inserted != 1) {
+      throw new FileBridgeException(
+          FileBridgeErrorCode.INVALID_UPLOAD_STATE, "Storage object is not available");
+    }
     jdbc.update(
-        "INSERT INTO"
-            + " fb_file_reference(id,object_id,tenant_id,owner_id,original_name,business_type,business_id,status,created_at,deleted_at)"
-            + " VALUES(:id,:oid,:tenant,:owner,:name,:bt,:bid,:status,:created,:deleted)",
-        new MapSqlParameterSource()
-            .addValue("id", s(r.id()))
-            .addValue("oid", s(r.objectId()))
-            .addValue("tenant", r.tenantId())
-            .addValue("owner", r.ownerId())
-            .addValue("name", r.originalName())
-            .addValue("bt", r.businessType())
-            .addValue("bid", r.businessId())
-            .addValue("status", r.status().name())
-            .addValue("created", ts(r.createdAt()))
-            .addValue("deleted", ts(r.deletedAt())));
-    return r;
+        "UPDATE fb_storage_object SET unreferenced_at=NULL,delete_after=NULL,updated_at=:now "
+            + "WHERE id=:id AND status='AVAILABLE'",
+        Map.of("id", s(reference.objectId()), "now", ts(reference.createdAt())));
+    return reference;
   }
 
   /**
@@ -141,11 +152,20 @@ public final class JdbcFileRepository implements FileRepository {
    */
   @Override
   public boolean markReferenceDeleted(UUID id, Instant at) {
-    return jdbc.update(
-            "UPDATE fb_file_reference SET status='DELETED',deleted_at=:at WHERE id=:id AND"
-                + " status='ACTIVE'",
-            Map.of("id", s(id), "at", ts(at)))
-        == 1;
+    int updated =
+        jdbc.update(
+            "UPDATE fb_file_reference SET status='DELETED',deleted_at=:at "
+                + "WHERE id=:id AND status='ACTIVE'",
+            Map.of("id", s(id), "at", ts(at)));
+    if (updated != 1) return false;
+    jdbc.update(
+        "UPDATE fb_storage_object o JOIN fb_file_reference r ON r.object_id=o.id "
+            + "SET o.unreferenced_at=:at,o.updated_at=:at "
+            + "WHERE r.id=:id AND o.status='AVAILABLE' "
+            + "AND NOT EXISTS(SELECT 1 FROM fb_file_reference active "
+            + "WHERE active.object_id=o.id AND active.status='ACTIVE')",
+        Map.of("id", s(id), "at", ts(at)));
+    return true;
   }
 
   /**
@@ -206,7 +226,7 @@ public final class JdbcFileRepository implements FileRepository {
   @Override
   public List<StorageObjectRecord> findUnreferencedAvailable(Instant olderThan, int limit) {
     return jdbc.query(
-        "SELECT o.* FROM fb_storage_object o WHERE o.status='AVAILABLE' AND o.created_at<:older AND"
+        "SELECT o.* FROM fb_storage_object o WHERE o.status='AVAILABLE' AND o.unreferenced_at IS NOT NULL AND o.unreferenced_at<:older AND"
             + " NOT EXISTS(SELECT 1 FROM fb_file_reference r WHERE r.object_id=o.id AND"
             + " r.status='ACTIVE') ORDER BY o.created_at LIMIT "
             + safeLimit(limit),

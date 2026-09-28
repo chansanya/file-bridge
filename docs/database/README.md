@@ -15,6 +15,7 @@
 | 2 | `V2__multipart_upload.sql` | 上传任务和分片记录 |
 | 3 | `V3__cleanup_and_reconciliation.sql` | 对账问题记录 |
 | 4 | `V4__upload_completion_retry.sql` | 完成任务重试、退避和错误记录 |
+| 5 | `V5__object_unreferenced_time.sql` | 无引用对象保留时间和删除竞态控制 |
 
 必须按顺序执行，不要跳过中间版本，也不要修改已经在生产环境执行过的脚本。
 

@@ -100,4 +100,58 @@ class JdbcFileRepositoryTest {
 
     assertThat(response).isEqualTo("UPLOAD:new");
   }
+
+  @Test
+  void startsRetentionWhenLastReferenceIsDeleted() {
+    Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+    UUID objectId = UUID.randomUUID();
+    repository.insertObject(object(objectId, now));
+    FileReference reference = reference(objectId, now);
+    repository.insertReference(reference);
+
+    assertThat(repository.markReferenceDeleted(reference.id(), now)).isTrue();
+    assertThat(repository.findUnreferencedAvailable(now.minusSeconds(1), 10)).isEmpty();
+    assertThat(repository.findUnreferencedAvailable(now.plusSeconds(1), 10))
+        .extracting(StorageObjectRecord::id)
+        .contains(objectId);
+  }
+
+  @Test
+  void refusesNewReferenceAfterDeleteHasBeenClaimed() {
+    Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+    UUID objectId = UUID.randomUUID();
+    repository.insertObject(object(objectId, now));
+    assertThat(repository.markObjectDeletePending(objectId, now)).isTrue();
+
+    assertThatThrownBy(() -> repository.insertReference(reference(objectId, now)))
+        .isInstanceOf(io.github.chansan.filebridge.core.error.FileBridgeException.class);
+  }
+
+  private static StorageObjectRecord object(UUID objectId, Instant now) {
+    return new StorageObjectRecord(
+        objectId,
+        new ObjectLocation("local-main", null, "2026/09/" + objectId),
+        5,
+        "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+        "text/plain",
+        StorageObjectStatus.AVAILABLE,
+        now,
+        now,
+        now,
+        0);
+  }
+
+  private static FileReference reference(UUID objectId, Instant now) {
+    return new FileReference(
+        UUID.randomUUID(),
+        objectId,
+        "tenant",
+        "owner",
+        "hello.txt",
+        null,
+        null,
+        FileReferenceStatus.ACTIVE,
+        now,
+        null);
+  }
 }

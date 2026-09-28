@@ -218,7 +218,7 @@ public final class DefaultFileService implements FileService {
   public void delete(UUID fileId) {
     Resolved r = resolve(fileId);
     policy.checkDelete(actors.currentActor(), r.reference);
-    files.markReferenceDeleted(fileId, Instant.now());
+    tx.required(() -> files.markReferenceDeleted(fileId, Instant.now()));
   }
 
   /**
