@@ -91,6 +91,24 @@ Java 代码统一使用 Google Java Format 1.25.2，并通过 Spotless 固化：
 ./mvnw spotless:check
 ```
 
+POM 使用 SortPom 4.0.0，构建时会自动检查：
+
+```bash
+./mvnw validate
+```
+
+`example` 中的 HTML、CSS 和原生 JavaScript 使用 Prettier 3.9.9：
+
+```bash
+npx prettier@3.9.9 --write \
+  example/src/main/resources/static/index.html \
+  example/src/main/resources/static/*.js
+
+npx prettier@3.9.9 --check \
+  example/src/main/resources/static/index.html \
+  example/src/main/resources/static/*.js
+```
+
 ## License
 
 MIT
