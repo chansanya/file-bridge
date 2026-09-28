@@ -5,7 +5,6 @@ import io.github.chansan.filebridge.core.repository.IdempotencyRepository;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.*;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.namedparam.*;
 
 /** 请求幂等记录的 JDBC 仓储实现。 */
@@ -59,24 +58,24 @@ public final class JdbcIdempotencyRepository implements IdempotencyRepository {
    * @param expires 记录过期时间
    */
   @Override
-  public void save(
+  public String save(
       String t, String o, String op, String key, String hash, String response, Instant expires) {
-    try {
-      jdbc.update(
-          "INSERT INTO"
-              + " fb_idempotency_record(tenant_id,owner_id,operation_name,idempotency_key,request_hash,response_value,expires_at)"
-              + " VALUES(:t,:o,:op,:k,:h,:r,:e)",
-          new MapSqlParameterSource()
-              .addValue("t", t)
-              .addValue("o", o)
-              .addValue("op", op)
-              .addValue("k", key)
-              .addValue("h", hash)
-              .addValue("r", response)
-              .addValue("e", Timestamp.from(expires)));
-    } catch (DuplicateKeyException e) {
-      Optional<String> existing = findResponse(t, o, op, key, hash);
-      if (existing.isEmpty() || !existing.get().equals(response)) throw e;
-    }
+    jdbc.update(
+        "INSERT INTO fb_idempotency_record"
+            + "(tenant_id,owner_id,operation_name,idempotency_key,request_hash,response_value,expires_at) "
+            + "VALUES(:t,:o,:op,:k,:h,:r,:e) AS incoming "
+            + "ON DUPLICATE KEY UPDATE "
+            + "request_hash=IF(fb_idempotency_record.expires_at<=CURRENT_TIMESTAMP(6),incoming.request_hash,fb_idempotency_record.request_hash),"
+            + "response_value=IF(fb_idempotency_record.expires_at<=CURRENT_TIMESTAMP(6),incoming.response_value,fb_idempotency_record.response_value),"
+            + "expires_at=IF(fb_idempotency_record.expires_at<=CURRENT_TIMESTAMP(6),incoming.expires_at,fb_idempotency_record.expires_at)",
+        new MapSqlParameterSource()
+            .addValue("t", t)
+            .addValue("o", o)
+            .addValue("op", op)
+            .addValue("k", key)
+            .addValue("h", hash)
+            .addValue("r", response)
+            .addValue("e", Timestamp.from(expires)));
+    return findResponse(t, o, op, key, hash).orElseThrow();
   }
 }

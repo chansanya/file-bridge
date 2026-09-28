@@ -17,6 +17,8 @@ import org.testcontainers.junit.jupiter.*;
 class JdbcFileRepositoryTest {
   @Container static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4");
   private JdbcFileRepository repository;
+  private JdbcIdempotencyRepository idempotencyRepository;
+  private NamedParameterJdbcTemplate jdbc;
 
   @BeforeEach
   void setUp() {
@@ -29,7 +31,9 @@ class JdbcFileRepositoryTest {
         .load()
         .clean();
     Flyway.configure().dataSource(ds).locations("classpath:db/migration").load().migrate();
-    repository = new JdbcFileRepository(new NamedParameterJdbcTemplate(ds));
+    jdbc = new NamedParameterJdbcTemplate(ds);
+    repository = new JdbcFileRepository(jdbc);
+    idempotencyRepository = new JdbcIdempotencyRepository(jdbc);
   }
 
   @Test
@@ -64,5 +68,36 @@ class JdbcFileRepositoryTest {
     repository.insertReference(ref);
     assertThat(repository.findReference(ref.id())).contains(ref);
     assertThat(repository.countActiveReferences(objectId)).isEqualTo(1);
+  }
+
+  @Test
+  void keepsFirstIdempotentResponseForConcurrentEquivalentRequest() {
+    Instant expiresAt = Instant.now().plusSeconds(3600);
+    String first =
+        idempotencyRepository.save(
+            "tenant", "owner", "UPLOAD_INIT", "key", "hash", "UPLOAD:first", expiresAt);
+    String second =
+        idempotencyRepository.save(
+            "tenant", "owner", "UPLOAD_INIT", "key", "hash", "UPLOAD:second", expiresAt);
+
+    assertThat(first).isEqualTo("UPLOAD:first");
+    assertThat(second).isEqualTo("UPLOAD:first");
+  }
+
+  @Test
+  void replacesExpiredIdempotencyRecord() {
+    Instant expiresAt = Instant.now().plusSeconds(3600);
+    idempotencyRepository.save(
+        "tenant", "owner", "UPLOAD_INIT", "expired-key", "old-hash", "UPLOAD:old", expiresAt);
+    jdbc.update(
+        "UPDATE fb_idempotency_record SET expires_at=DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 1 SECOND) "
+            + "WHERE idempotency_key='expired-key'",
+        java.util.Map.of());
+
+    String response =
+        idempotencyRepository.save(
+            "tenant", "owner", "UPLOAD_INIT", "expired-key", "new-hash", "UPLOAD:new", expiresAt);
+
+    assertThat(response).isEqualTo("UPLOAD:new");
   }
 }

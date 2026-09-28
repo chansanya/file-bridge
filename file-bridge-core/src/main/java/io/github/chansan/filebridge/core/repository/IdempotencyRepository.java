@@ -28,8 +28,9 @@ public interface IdempotencyRepository {
    * @param requestHash 请求指纹
    * @param responseValue 可恢复业务结果的紧凑响应值
    * @param expiresAt 记录过期时间
+   * @return 当前幂等键对应的规范响应值；并发请求时可能是先完成请求的结果
    */
-  void save(
+  String save(
       String tenantId,
       String ownerId,
       String operation,

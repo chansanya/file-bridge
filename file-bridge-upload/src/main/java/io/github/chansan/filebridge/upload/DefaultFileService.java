@@ -133,23 +133,30 @@ public final class DefaultFileService implements FileService {
             () -> {
               files.insertObject(object);
               files.insertReference(reference);
-              if (hasText(command.idempotencyKey()))
-                idempotency.save(
-                    actor.tenantId(),
-                    actor.ownerId(),
-                    "FILE_UPLOAD",
-                    command.idempotencyKey(),
-                    fingerprint,
-                    fileId.toString(),
-                    now.plus(Duration.ofHours(24)));
+              if (hasText(command.idempotencyKey())) {
+                String canonical =
+                    idempotency.save(
+                        actor.tenantId(),
+                        actor.ownerId(),
+                        "FILE_UPLOAD",
+                        command.idempotencyKey(),
+                        fingerprint,
+                        fileId.toString(),
+                        now.plus(Duration.ofHours(24)));
+                if (!canonical.equals(fileId.toString())) {
+                  throw new IdempotencyReplayException(canonical);
+                }
+              }
               return metadata(reference, object);
             });
       } catch (RuntimeException e) {
-        // 数据库事务失败时补偿删除已写入对象；补偿异常作为 suppressed 保留。
         try {
           storage.delete(stored.location());
         } catch (RuntimeException cleanup) {
           e.addSuppressed(cleanup);
+        }
+        if (e instanceof IdempotencyReplayException replay) {
+          return get(UUID.fromString(replay.responseValue()));
         }
         throw e;
       }

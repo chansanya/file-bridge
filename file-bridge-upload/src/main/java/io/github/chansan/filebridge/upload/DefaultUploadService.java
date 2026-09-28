@@ -116,21 +116,32 @@ public final class DefaultUploadService implements UploadService {
                 FileReferenceStatus.ACTIVE,
                 Instant.now(),
                 null);
-        UUID fileId =
-            tx.required(
-                () -> {
-                  files.insertReference(copy);
-                  if (hasText(c.idempotencyKey()))
-                    idempotency.save(
-                        actor.tenantId(),
-                        actor.ownerId(),
-                        "UPLOAD_INIT",
-                        c.idempotencyKey(),
-                        requestHash,
-                        "INSTANT:" + copy.id(),
-                        Instant.now().plus(Duration.ofHours(24)));
-                  return copy.id();
-                });
+        UUID fileId;
+        try {
+          fileId =
+              tx.required(
+                  () -> {
+                    files.insertReference(copy);
+                    if (hasText(c.idempotencyKey())) {
+                      String response = "INSTANT:" + copy.id();
+                      String canonical =
+                          idempotency.save(
+                              actor.tenantId(),
+                              actor.ownerId(),
+                              "UPLOAD_INIT",
+                              c.idempotencyKey(),
+                              requestHash,
+                              response,
+                              Instant.now().plus(Duration.ofHours(24)));
+                      if (!canonical.equals(response)) {
+                        throw new IdempotencyReplayException(canonical);
+                      }
+                    }
+                    return copy.id();
+                  });
+        } catch (IdempotencyReplayException replay) {
+          return decode(replay.responseValue());
+        }
         return UploadInitialization.instant(fileId);
       }
     }
@@ -179,21 +190,30 @@ public final class DefaultUploadService implements UploadService {
       tx.required(
           () -> {
             uploads.insertTask(task);
-            if (hasText(c.idempotencyKey()))
-              idempotency.save(
-                  actor.tenantId(),
-                  actor.ownerId(),
-                  "UPLOAD_INIT",
-                  c.idempotencyKey(),
-                  requestHash,
-                  "UPLOAD:" + id,
-                  now.plus(Duration.ofHours(24)));
+            if (hasText(c.idempotencyKey())) {
+              String response = "UPLOAD:" + id;
+              String canonical =
+                  idempotency.save(
+                      actor.tenantId(),
+                      actor.ownerId(),
+                      "UPLOAD_INIT",
+                      c.idempotencyKey(),
+                      requestHash,
+                      response,
+                      now.plus(Duration.ofHours(24)));
+              if (!canonical.equals(response)) {
+                throw new IdempotencyReplayException(canonical);
+              }
+            }
           });
     } catch (RuntimeException e) {
       try {
         multipart.abortMultipart(handle);
       } catch (RuntimeException cleanup) {
         e.addSuppressed(cleanup);
+      }
+      if (e instanceof IdempotencyReplayException replay) {
+        return decode(replay.responseValue());
       }
       throw e;
     }
