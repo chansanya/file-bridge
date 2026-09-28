@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: file-bridge-example
+  profiles:
+    active: demo
+  datasource:
+    url: jdbc:mysql://localhost:3306/file_bridge?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC
+    username: filebridge
+    password: filebridge
+  flyway:
+    locations: classpath:db/migration
+file-bridge:
+  enabled: true
+  default-storage: local-main
+  web:
+    enabled: true
+    base-path: /api/file-bridge
+  upload:
+    max-file-size: 2GB
+    preferred-part-size: 8MB
+    task-ttl: 24h
+  storages:
+    local-main:
+      type: local
+      root-path: ./data/files
+      temp-path: ./data/uploads

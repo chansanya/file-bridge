@@ -1,0 +1,14 @@
+target/
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+.DS_Store
+Thumbs.db
+*.log
+.env
+data/
+file-bridge-example/data/
+*:Zone.Identifier

@@ -1,0 +1,287 @@
+# FileBridge 配置参考
+
+## 1. 配置总览
+
+配置前缀为 `file-bridge`。
+
+```yaml
+file-bridge:
+  enabled: true
+  default-storage: local-main
+  web:
+    enabled: true
+    base-path: /api/file-bridge
+  upload:
+    max-file-size: 2GB
+    preferred-part-size: 8MB
+    task-ttl: 24h
+    lease-duration: 10m
+  deduplication:
+    enabled: true
+    scope: USER
+  cleanup:
+    enabled: true
+    interval: 30m
+    unreferenced-retention: 24h
+  storages:
+    local-main:
+      type: local
+      root-path: ./data/files
+      temp-path: ./data/uploads
+```
+
+## 2. 核心配置
+
+| 配置项 | 默认值 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `file-bridge.enabled` | `true` | 否 | 是否启用 FileBridge 自动配置 |
+| `file-bridge.default-storage` | `local-main` | 启用时是 | 新上传文件默认使用的存储实例 ID |
+| `file-bridge.storages` | 空 | 启用时是 | 存储实例映射，Key 是稳定实例 ID |
+
+### `default-storage` 与实例 ID
+
+```yaml
+file-bridge:
+  default-storage: minio-main
+  storages:
+    minio-main:
+      type: minio
+      # ...
+```
+
+`default-storage` 必须等于 `storages` 中某个已启用实例的 Key。
+
+实例 ID 与平台类型是两个概念：
+
+```yaml
+storages:
+  minio-primary:
+    type: minio
+  minio-archive:
+    type: minio
+```
+
+这样可以配置多个同类型实例。实例 ID 会写入对象元数据，切换默认存储不会改变历史对象的读取位置。
+
+## 3. Web 配置
+
+| 配置项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `file-bridge.web.enabled` | `true` | 是否注册 REST Controller；还需要引入 `file-bridge-web` |
+| `file-bridge.web.base-path` | `/api/file-bridge` | REST API 路径前缀 |
+
+只通过 Java 服务调用时可以关闭：
+
+```yaml
+file-bridge:
+  web:
+    enabled: false
+```
+
+## 4. 上传配置
+
+| 配置项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `file-bridge.upload.max-file-size` | `2GB` | 单文件大小上限 |
+| `file-bridge.upload.preferred-part-size` | `8MB` | 首选分片大小，最终值还会受存储平台限制 |
+| `file-bridge.upload.task-ttl` | `24h` | 未完成上传任务有效期 |
+| `file-bridge.upload.lease-duration` | `10m` | 后台完成任务的处理租约时长 |
+
+`preferred-part-size` 不是强制值。实际分片大小取配置偏好与存储平台最小值、最大值及最大分片数的交集。
+
+## 5. 秒传配置
+
+| 配置项 | 默认值 | 可选值 | 说明 |
+| --- | --- | --- | --- |
+| `file-bridge.deduplication.enabled` | `true` | `true` / `false` | 是否启用秒传候选查询 |
+| `file-bridge.deduplication.scope` | `USER` | `DISABLED`、`USER`、`TENANT` | 摘要候选查询范围 |
+
+范围说明：
+
+- `DISABLED`：关闭秒传；
+- `USER`：只复用当前租户、当前用户已有的有效引用；
+- `TENANT`：允许在当前租户内寻找候选，但最终仍由 `FileAccessPolicy.canReuse` 决定是否有权复用。
+
+客户端摘要只是候选条件。只有服务端已完成最终校验且状态为 `AVAILABLE` 的对象才会参与秒传。
+
+## 6. 清理配置
+
+| 配置项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `file-bridge.cleanup.enabled` | `true` | 是否启用清理配置标志 |
+| `file-bridge.cleanup.interval` | `30m` | 清理周期配置值 |
+| `file-bridge.cleanup.unreferenced-retention` | `24h` | 无引用对象删除前的保留时间 |
+
+当前调度器读取的周期属性为：
+
+```yaml
+file-bridge:
+  worker:
+    interval: 5s
+  cleanup:
+    interval: 30m
+  reconciliation:
+    interval: 15m
+```
+
+> 清理和对账属于破坏性或修复性后台任务。上线前应结合数据量、对象存储限流和数据库压力调整周期。
+
+## 7. 本地存储
+
+本地存储不需要额外依赖：
+
+```yaml
+file-bridge:
+  default-storage: local-main
+  storages:
+    local-main:
+      type: local
+      enabled: true
+      root-path: /srv/file-bridge/files
+      temp-path: /srv/file-bridge/uploads
+```
+
+| 配置项 | 必填 | 说明 |
+| --- | --- | --- |
+| `type` | 是 | 固定为 `local` |
+| `enabled` | 否 | 默认 `true` |
+| `root-path` | 是 | 最终对象目录 |
+| `temp-path` | 是 | 临时对象和分片目录，不能与 `root-path` 相同 |
+
+部署限制：
+
+- 单实例部署可以使用本机目录；
+- 多实例部署必须使用所有实例都能访问的共享文件系统；
+- 只共享数据库但不共享文件目录，无法完成跨实例续传和下载；
+- 目录必须可创建、可读、可写；
+- 不要把临时目录暴露为静态资源目录。
+
+## 8. MinIO
+
+先添加依赖：
+
+```xml
+<dependency>
+  <groupId>io.github.chansan</groupId>
+  <artifactId>file-bridge-storage-minio</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+</dependency>
+```
+
+配置：
+
+```yaml
+file-bridge:
+  default-storage: minio-main
+  storages:
+    minio-main:
+      type: minio
+      endpoint: http://localhost:9000
+      bucket: file-bridge
+      access-key: ${MINIO_ACCESS_KEY}
+      secret-key: ${MINIO_SECRET_KEY}
+```
+
+必填项：`endpoint`、`bucket`、`access-key`、`secret-key`。
+
+## 9. 阿里云 OSS
+
+先添加依赖：
+
+```xml
+<dependency>
+  <groupId>io.github.chansan</groupId>
+  <artifactId>file-bridge-storage-aliyun</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+</dependency>
+```
+
+配置：
+
+```yaml
+file-bridge:
+  default-storage: aliyun-main
+  storages:
+    aliyun-main:
+      type: aliyun-oss
+      endpoint: https://oss-cn-hangzhou.aliyuncs.com
+      bucket: your-bucket
+      access-key: ${ALIYUN_ACCESS_KEY_ID}
+      secret-key: ${ALIYUN_ACCESS_KEY_SECRET}
+```
+
+必填项：`endpoint`、`bucket`、`access-key`、`secret-key`。
+
+## 10. 腾讯云 COS
+
+先添加依赖：
+
+```xml
+<dependency>
+  <groupId>io.github.chansan</groupId>
+  <artifactId>file-bridge-storage-tencent</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+</dependency>
+```
+
+配置：
+
+```yaml
+file-bridge:
+  default-storage: tencent-main
+  storages:
+    tencent-main:
+      type: tencent-cos
+      region: ap-guangzhou
+      bucket: your-bucket-1250000000
+      access-key: ${TENCENT_SECRET_ID}
+      secret-key: ${TENCENT_SECRET_KEY}
+```
+
+必填项：`region`、`bucket`、`access-key`、`secret-key`。
+
+## 11. 多存储实例
+
+```yaml
+file-bridge:
+  default-storage: local-main
+  storages:
+    local-main:
+      type: local
+      root-path: /srv/file-bridge/files
+      temp-path: /srv/file-bridge/uploads
+    minio-archive:
+      type: minio
+      endpoint: https://minio.example.com
+      bucket: archive
+      access-key: ${MINIO_ACCESS_KEY}
+      secret-key: ${MINIO_SECRET_KEY}
+```
+
+当前新上传使用 `default-storage`。历史对象始终按数据库中记录的 `storageId` 查找原存储实例，因此：
+
+- 可以切换新上传的默认存储；
+- 不得在仍有历史对象时直接删除旧实例配置；
+- 不得复用旧实例 ID 指向另一套不相关存储。
+
+## 12. 密钥安全
+
+不要把真实凭证直接写入仓库：
+
+```yaml
+access-key: ${STORAGE_ACCESS_KEY}
+secret-key: ${STORAGE_SECRET_KEY}
+```
+
+当前云适配器要求显式提供访问密钥。生产环境应通过环境变量或宿主密钥管理系统注入，并限制配置文件、日志和诊断接口的访问权限。
+
+## 13. 启动失败排查
+
+| 错误场景 | 常见原因 | 处理方式 |
+| --- | --- | --- |
+| `Unknown storage id` | `default-storage` 与实例 Key 不一致 | 修正 ID 或注册自定义 Provider |
+| `Missing storage type` | 存储实例未配置 `type` | 设置 `local`、`minio`、`aliyun-oss` 或 `tencent-cos` |
+| `Storage module is not on the classpath` | 配置了云类型但没引入模块 | 添加对应 `file-bridge-storage-*` 依赖 |
+| 缺少 `CurrentActorProvider` | 启用了 JDBC 业务服务但未提供可信身份 | 注册身份 Bean |
+| 缺少 `FileAccessPolicy` | 未提供授权策略 | 注册访问策略 Bean |
+| 本地目录初始化失败 | 路径无权限或非法 | 检查目录权限和挂载配置 |

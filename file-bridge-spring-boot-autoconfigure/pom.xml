@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>io.github.chansan</groupId><artifactId>file-bridge-parent</artifactId><version>0.1.0-SNAPSHOT</version><relativePath>../pom.xml</relativePath>
+  </parent>
+  <artifactId>file-bridge-spring-boot-autoconfigure</artifactId>
+  <name>file-bridge-spring-boot-autoconfigure</name>
+  <dependencies>
+    <dependency><groupId>io.github.chansan</groupId><artifactId>file-bridge-core</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.github.chansan</groupId><artifactId>file-bridge-upload</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.github.chansan</groupId><artifactId>file-bridge-storage-local</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.github.chansan</groupId><artifactId>file-bridge-persistence-jdbc</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.github.chansan</groupId><artifactId>file-bridge-web</artifactId><version>${project.version}</version><optional>true</optional></dependency>
+    <dependency><groupId>io.github.chansan</groupId><artifactId>file-bridge-storage-minio</artifactId><version>${project.version}</version><optional>true</optional></dependency>
+    <dependency><groupId>io.github.chansan</groupId><artifactId>file-bridge-storage-aliyun</artifactId><version>${project.version}</version><optional>true</optional></dependency>
+    <dependency><groupId>io.github.chansan</groupId><artifactId>file-bridge-storage-tencent</artifactId><version>${project.version}</version><optional>true</optional></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-autoconfigure</artifactId></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-configuration-processor</artifactId><optional>true</optional></dependency>
+    <dependency><groupId>jakarta.validation</groupId><artifactId>jakarta.validation-api</artifactId></dependency>
+  </dependencies>
+</project>
