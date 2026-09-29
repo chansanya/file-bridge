@@ -14,13 +14,18 @@ public final class DefaultReconciliationService implements ReconciliationService
   private final FileRepository files;
   private final ReconciliationRepository issues;
   private final StorageRegistry storages;
+  private final FileBridgeMetrics metrics;
   private final String workerId;
 
   public DefaultReconciliationService(
-      FileRepository files, ReconciliationRepository issues, StorageRegistry storages) {
+      FileRepository files,
+      ReconciliationRepository issues,
+      StorageRegistry storages,
+      FileBridgeMetrics metrics) {
     this.files = files;
     this.issues = issues;
     this.storages = storages;
+    this.metrics = metrics;
     this.workerId = UUID.randomUUID().toString();
   }
 
@@ -34,6 +39,7 @@ public final class DefaultReconciliationService implements ReconciliationService
       process(issue);
       processed++;
     }
+    metrics.record("reconciliation", "success", processed, 0);
     return processed;
   }
 

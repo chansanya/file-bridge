@@ -1,2 +1,3 @@
 io.github.chansan.filebridge.autoconfigure.FileBridgeAutoConfiguration
 io.github.chansan.filebridge.autoconfigure.FileBridgeJobConfiguration
+io.github.chansan.filebridge.autoconfigure.FileBridgeMetricsAutoConfiguration

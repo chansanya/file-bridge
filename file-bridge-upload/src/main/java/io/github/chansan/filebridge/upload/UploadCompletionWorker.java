@@ -19,6 +19,7 @@ public final class UploadCompletionWorker implements AutoCloseable {
   private final FileRepository files;
   private final StorageRegistry storages;
   private final TransactionRunner tx;
+  private final FileBridgeMetrics metrics;
   private final String workerId;
   private static final int MAX_COMPLETION_ATTEMPTS = 3;
   private final Duration lease;
@@ -39,12 +40,14 @@ public final class UploadCompletionWorker implements AutoCloseable {
       FileRepository files,
       StorageRegistry storages,
       TransactionRunner tx,
+      FileBridgeMetrics metrics,
       String workerId,
       Duration lease) {
     this.uploads = uploads;
     this.files = files;
     this.storages = storages;
     this.tx = tx;
+    this.metrics = metrics;
     this.workerId = workerId;
     this.lease = lease;
     this.heartbeatExecutor =
@@ -77,6 +80,7 @@ public final class UploadCompletionWorker implements AutoCloseable {
    * @return 当前工作器成功完成任务时返回 {@code true}
    */
   public boolean process(UploadTask snapshot) {
+    long started = System.nanoTime();
     Instant now = Instant.now();
     if (!uploads.acquireCompletionLease(snapshot.id(), workerId, now.plus(lease), now)) {
       return false;
@@ -169,8 +173,10 @@ public final class UploadCompletionWorker implements AutoCloseable {
                   FileBridgeErrorCode.INVALID_UPLOAD_STATE, "Completion lease was lost");
             }
           });
+      metrics.record("completion", "success", task.expectedSize(), System.nanoTime() - started);
       return true;
     } catch (RuntimeException error) {
+      metrics.record("completion", "failure", task.expectedSize(), System.nanoTime() - started);
       LOGGER.log(System.Logger.Level.WARNING, "Upload completion failed: " + task.id(), error);
       Instant failedAt = Instant.now();
       String message =

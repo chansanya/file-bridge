@@ -14,6 +14,7 @@ public final class DefaultCleanupService implements CleanupService {
   private final FileRepository files;
   private final StorageRegistry storages;
   private final ReconciliationRepository issues;
+  private final FileBridgeMetrics metrics;
   private final Duration retention;
 
   /**
@@ -29,11 +30,13 @@ public final class DefaultCleanupService implements CleanupService {
       FileRepository files,
       StorageRegistry storages,
       ReconciliationRepository issues,
+      FileBridgeMetrics metrics,
       Duration retention) {
     this.uploads = uploads;
     this.files = files;
     this.storages = storages;
     this.issues = issues;
+    this.metrics = metrics;
     this.retention = retention;
   }
 
@@ -54,6 +57,7 @@ public final class DefaultCleanupService implements CleanupService {
         count++;
       }
     }
+    metrics.record("cleanup.uploads", "success", count, 0);
     return count;
   }
 
@@ -87,6 +91,7 @@ public final class DefaultCleanupService implements CleanupService {
             failedAt);
       }
     }
+    metrics.record("cleanup.objects", "success", count, 0);
     return count;
   }
 }

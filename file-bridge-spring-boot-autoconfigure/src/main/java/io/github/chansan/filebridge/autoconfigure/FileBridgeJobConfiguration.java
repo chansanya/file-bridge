@@ -37,9 +37,10 @@ public class FileBridgeJobConfiguration {
       FileRepository f,
       StorageRegistry s,
       TransactionRunner t,
+      FileBridgeMetrics metrics,
       FileBridgeProperties p) {
     return new UploadCompletionWorker(
-        u, f, s, t, UUID.randomUUID().toString(), p.getUpload().getLeaseDuration());
+        u, f, s, t, metrics, UUID.randomUUID().toString(), p.getUpload().getLeaseDuration());
   }
 
   /**

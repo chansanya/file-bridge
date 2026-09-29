@@ -320,8 +320,10 @@ public class FileBridgeAutoConfiguration {
       FileRepository f,
       StorageRegistry s,
       ReconciliationRepository r,
+      FileBridgeMetrics metrics,
       FileBridgeProperties p) {
-    return new DefaultCleanupService(u, f, s, r, p.getCleanup().getUnreferencedRetention());
+    return new DefaultCleanupService(
+        u, f, s, r, metrics, p.getCleanup().getUnreferencedRetention());
   }
 
   /**
@@ -335,8 +337,8 @@ public class FileBridgeAutoConfiguration {
   @ConditionalOnBean({FileRepository.class, ReconciliationRepository.class, StorageRegistry.class})
   @ConditionalOnMissingBean
   ReconciliationService reconciliationService(
-      FileRepository f, ReconciliationRepository r, StorageRegistry s) {
-    return new DefaultReconciliationService(f, r, s);
+      FileRepository f, ReconciliationRepository r, StorageRegistry s, FileBridgeMetrics metrics) {
+    return new DefaultReconciliationService(f, r, s, metrics);
   }
 
   /**
