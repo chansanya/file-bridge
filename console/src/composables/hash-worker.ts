@@ -1,6 +1,6 @@
-import { Sha256 } from './sha256.js';
+import { Sha256 } from './sha256';
 
-self.onmessage = async (event) => {
+self.onmessage = async (event: MessageEvent<{ file: File; blockSize: number }>) => {
   const { file, blockSize } = event.data;
   const hasher = new Sha256();
   let offset = 0;

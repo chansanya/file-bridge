@@ -4,15 +4,15 @@ FileBridge 是一个可嵌入 Spring Boot 的通用文件服务组件，提供�
 
 ## 当前能力
 
-- 普通文件流式上传、查询、下载和删除
-- 分片上传、断点续传、分片重试和后台合并
-- 基于 SHA-256 的服务端最终校验
-- 用户或租户授权范围内的秒传
-- 本地文件系统、MinIO、阿里云 OSS、腾讯云 COS
-- JDBC 持久化和 MySQL 8.4 数据库脚本
-- Spring Boot 自动配置和 Java 服务接口
-- 独立 `example` 工程演示真实 Starter 接入和 REST 封装
-- Vue 3 浏览器 ESM 上传控制台：拖放队列、小文件直传、大文件分片、秒传和续传
+- 普通文件流式上传、分页列表检索、HTTP Range 206 分片与原生三模下载
+- 大文件切片并发上传、网络故障自动重试、断点续传与后台异步合并对账
+- 基于 Web Worker 独立线程计算 SHA-256 特征值，主渲染线程零卡顿
+- 用户或租户授权范围内的毫秒级秒传探针
+- 本地文件系统、MinIO、阿里云 OSS、腾讯云 COS 存储适配
+- JDBC 持久化（语法全量兼容 MySQL 5.7 到 8.4 LTS）
+- Spring Boot 自动配置和纯净 Java 服务接口
+- 独立 `example` 工程演示真实 Starter 接入和标准 REST 封装
+- 独立 Vue 3 + TypeScript + Naive UI 管理控制台（`console/`），支持前后端分离独立开发与一键注入 Fat JAR 单体交付
 
 ## 技术基线
 
@@ -99,17 +99,16 @@ POM 使用 SortPom 4.0.0，构建时会自动检查：
 ./mvnw validate
 ```
 
-`example` 使用 Vue 3 浏览器 ESM，不需要前端构建步骤。业务 HTML、CSS 和 JavaScript 使用 Prettier 3.9.9；`vendor/` 下的第三方文件不参与格式化：
+Example 前端源码位于 `console`，使用 Vite 构建到 `example/src/main/resources/static`：
 
 ```bash
-npx prettier@3.9.9 --write \
-  example/src/main/resources/static/index.html \
-  example/src/main/resources/static/*.js
-
-npx prettier@3.9.9 --check \
-  example/src/main/resources/static/index.html \
-  example/src/main/resources/static/*.js
+cd console
+npm ci
+npm run type-check
+npm run build
 ```
+
+不要直接修改 `static/assets` 下的构建产物。
 
 ## License
 

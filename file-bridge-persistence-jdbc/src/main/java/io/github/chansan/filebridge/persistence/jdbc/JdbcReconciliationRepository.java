@@ -34,10 +34,10 @@ public final class JdbcReconciliationRepository implements ReconciliationReposit
             + "status,attempts,last_error,next_attempt_at,created_at,updated_at) "
             + "VALUES(:fingerprint,:type,:storage,:bucket,:objectKey,:providerUploadId,:entity,"
             + "'OPEN',0,:error,:next,:now,:now) "
-            + "AS incoming ON DUPLICATE KEY UPDATE "
+            + "ON DUPLICATE KEY UPDATE "
             + "status=IF(fb_reconciliation_issue.status='RESOLVED','OPEN',fb_reconciliation_issue.status),"
-            + "last_error=incoming.last_error,next_attempt_at=incoming.next_attempt_at,"
-            + "resolved_at=NULL,updated_at=incoming.updated_at",
+            + "last_error=VALUES(last_error),next_attempt_at=VALUES(next_attempt_at),"
+            + "resolved_at=NULL,updated_at=VALUES(updated_at)",
         params(
             fingerprint,
             issueType,

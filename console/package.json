@@ -1,0 +1,24 @@
+{
+  "name": "file-bridge-console",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "type-check": "vue-tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-vue-next": "^0.469.0",
+    "naive-ui": "^2.41.0",
+    "vfonts": "^0.0.3",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "typescript": "~5.6.3",
+    "vite": "^6.0.0",
+    "vue-tsc": "^2.1.10"
+  }
+}

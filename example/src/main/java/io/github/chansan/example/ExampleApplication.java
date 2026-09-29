@@ -1,13 +1,17 @@
 package io.github.chansan.example;
 
+import io.github.chansan.example.web.ApiLoggingFilter;
 import io.github.chansan.example.web.RequestIdFilter;
 import io.github.chansan.filebridge.core.error.*;
 import io.github.chansan.filebridge.core.model.*;
 import io.github.chansan.filebridge.core.spi.*;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.*;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.*;
+import org.springframework.core.Ordered;
 
 /** FileBridge 本地演示应用。 */
 @SpringBootApplication
@@ -22,13 +26,36 @@ public class ExampleApplication {
   }
 
   /**
-   * 创建请求追踪 ID 过滤器。
+   * 注册请求追踪 ID 过滤器，并保证其包裹后续 API 日志和业务处理。
    *
-   * @return 请求追踪 ID 过滤器
+   * @return 过滤器注册配置
    */
   @Bean
-  RequestIdFilter requestIdFilter() {
-    return new RequestIdFilter();
+  FilterRegistrationBean<RequestIdFilter> requestIdFilter() {
+    FilterRegistrationBean<RequestIdFilter> registration = new FilterRegistrationBean<>();
+    registration.setFilter(new RequestIdFilter());
+    registration.addUrlPatterns("/*");
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+    registration.setName("requestIdFilter");
+    return registration;
+  }
+
+  /**
+   * 注册 API 调用日志过滤器。
+   *
+   * @param basePath FileBridge API 基础路径
+   * @return 过滤器注册配置
+   */
+  @Bean
+  FilterRegistrationBean<ApiLoggingFilter> apiLoggingFilter(
+      @Value("${example.file-bridge.base-path:/api/file-bridge}") String basePath) {
+    String path = basePath.startsWith("/") ? basePath : "/" + basePath;
+    FilterRegistrationBean<ApiLoggingFilter> registration = new FilterRegistrationBean<>();
+    registration.setFilter(new ApiLoggingFilter());
+    registration.addUrlPatterns(path + "/*");
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
+    registration.setName("apiLoggingFilter");
+    return registration;
   }
 
   @Configuration

@@ -293,9 +293,37 @@ secret-key: ${STORAGE_SECRET_KEY}
 | 缺少 `CurrentActorProvider` | 启用了 JDBC 业务服务但未提供可信身份 | 注册身份 Bean |
 | 缺少 `FileAccessPolicy` | 未提供授权策略 | 注册访问策略 Bean |
 | 本地目录初始化失败 | 路径无权限或非法 | 检查目录权限和挂载配置 |
-## 14. Micrometer 指标
+## 14. 上传与下载日志
 
-宿主提供 `MeterRegistry`（通常通过 Spring Boot Actuator）时，FileBridge 自动注册：
+FileBridge 默认只在关键生命周期节点输出日志，不按缓冲区读取次数刷屏：
+
+| 级别 | 记录内容 |
+| --- | --- |
+| `INFO` | 普通上传开始/完成、分片任务创建、秒传命中、完成请求、后台合并、最终校验、完整下载完成、取消任务 |
+| `DEBUG` | 单个分片完成、下载流打开/非完整关闭、Example HTTP 请求摘要和 Range 信息 |
+| `WARN` | 可识别的业务失败、存储失败、待重试或需要对账的操作 |
+| `ERROR` | 未知运行时异常，并保留异常堆栈 |
+
+日志使用 `fileId`、`uploadId`、`storageId`、字节数、分片序号、耗时和错误码定位问题。不会记录文件正文、完整摘要、对象路径、Bucket、访问密钥、幂等键或签名 URL。
+
+宿主应把请求追踪 ID 放入日志上下文。Example 已通过 `RequestIdFilter` 写入 MDC，并配置：
+
+```yaml
+logging:
+  pattern:
+    level: "%5p [requestId:%X{requestId:-}]"
+  level:
+    io.github.chansan.filebridge.upload: info
+    io.github.chansan.example.web.ApiLoggingFilter: debug
+```
+
+生产环境建议保持业务生命周期日志为 `INFO`，仅在排障期间临时开启 `io.github.chansan.filebridge.upload: debug`。`ApiLoggingFilter` 属于 Example 参考实现，不会由 Starter 自动注册。
+
+Example 页面还提供仅保存在当前浏览器页面内的运行日志抽屉，用于查看客户端上传、下载和 HTTP 请求过程。该抽屉不读取服务端日志，也不属于 Starter 能力，详见 [Example 管理控制台](example.md)。
+
+## 15. 指标端口
+
+FileBridge 通过 `FileBridgeMetrics` 端口记录以下语义：
 
 | 指标 | 说明 |
 | --- | --- |
@@ -303,4 +331,6 @@ secret-key: ${STORAGE_SECRET_KEY}
 | `filebridge.amount` | 上传、下载字节数或后台处理数量 |
 | `filebridge.duration` | 上传、下载和完成任务耗时 |
 
-当前 operation 包括 `upload`、`download`、`completion`、`cleanup.uploads`、`cleanup.objects` 和 `reconciliation`。下载结果区分 `success`、`incomplete` 和 `failure`。未提供 Micrometer 时使用空实现，不增加强制运行时依赖。
+当前 operation 包括 `upload`、`download`、`completion`、`cleanup.uploads`、`cleanup.objects` 和 `reconciliation`。下载结果区分 `success`、`incomplete` 和 `failure`。
+
+Starter 当前提供空实现以避免强制引入 Micrometer。宿主需要真实指标时，应注册自定义 `FileBridgeMetrics` Bean；Starter 不会因为 classpath 中存在 `MeterRegistry` 就自动绑定 Micrometer。

@@ -11,6 +11,8 @@ import java.util.*;
 
 /** 分片上传、断点续传和秒传的默认实现。 */
 public final class DefaultUploadService implements UploadService {
+  private static final System.Logger LOGGER =
+      System.getLogger(DefaultUploadService.class.getName());
   private final UploadRepository uploads;
   private final FileRepository files;
   private final IdempotencyRepository idempotency;
@@ -82,6 +84,11 @@ public final class DefaultUploadService implements UploadService {
    */
   @Override
   public UploadInitialization initialize(InitializeUploadCommand c) {
+    LOGGER.log(
+        System.Logger.Level.INFO,
+        "Multipart upload initialization started storageId={0} bytes={1}",
+        defaultStorage,
+        c.size());
     // 初始化阶段统一完成身份、权限、配额和幂等校验。
     Actor actor = actors.currentActor();
     policy.checkUpload(actor, c.businessType(), c.businessId());
@@ -94,7 +101,11 @@ public final class DefaultUploadService implements UploadService {
       Optional<String> prior =
           idempotency.findResponse(
               actor.tenantId(), actor.ownerId(), "UPLOAD_INIT", c.idempotencyKey(), requestHash);
-      if (prior.isPresent()) return decode(prior.get());
+      if (prior.isPresent()) {
+        UploadInitialization replay = decode(prior.get());
+        logInitialization("idempotency-replay", replay, c.size());
+        return replay;
+      }
     }
     // 客户端摘要只用于候选匹配，仍需同时满足授权范围和对象可用状态。
     if (deduplicationScope != DeduplicationScope.DISABLED && hasText(c.sha256())) {
@@ -143,9 +154,13 @@ public final class DefaultUploadService implements UploadService {
                     return copy.id();
                   });
         } catch (IdempotencyReplayException replay) {
-          return decode(replay.responseValue());
+          UploadInitialization result = decode(replay.responseValue());
+          logInitialization("concurrent-replay", result, c.size());
+          return result;
         }
-        return UploadInitialization.instant(fileId);
+        UploadInitialization result = UploadInitialization.instant(fileId);
+        logInitialization("instant", result, c.size());
+        return result;
       }
     }
     StorageProvider provider = storages.require(defaultStorage);
@@ -216,11 +231,24 @@ public final class DefaultUploadService implements UploadService {
         e.addSuppressed(cleanup);
       }
       if (e instanceof IdempotencyReplayException replay) {
-        return decode(replay.responseValue());
+        UploadInitialization result = decode(replay.responseValue());
+        logInitialization("concurrent-replay", result, c.size());
+        return result;
       }
       throw e;
     }
-    return UploadInitialization.upload(id, partSize, total, task.expiresAt());
+    UploadInitialization result =
+        UploadInitialization.upload(id, partSize, total, task.expiresAt());
+    LOGGER.log(
+        System.Logger.Level.INFO,
+        "Multipart upload initialized uploadId={0} storageId={1} bytes={2} partSize={3} totalParts={4} expiresAt={5}",
+        id,
+        defaultStorage,
+        c.size(),
+        partSize,
+        total,
+        task.expiresAt());
+    return result;
   }
 
   /**
@@ -241,12 +269,18 @@ public final class DefaultUploadService implements UploadService {
     validatePart(task, number, length);
     MultipartStorageProvider p = asMultipart(task);
     // 只有存储平台确认成功后，才把分片记录为 COMPLETED。
-    UploadedPart stored =
-        p.uploadPart(
-            new MultipartUploadHandle(task.providerUploadId(), task.objectKey()),
-            number,
-            length,
-            input);
+    UploadedPart stored;
+    try {
+      stored =
+          p.uploadPart(
+              new MultipartUploadHandle(task.providerUploadId(), task.objectKey()),
+              number,
+              length,
+              input);
+    } catch (RuntimeException error) {
+      logPartFailure(task, number, length, error);
+      throw error;
+    }
     String normalized = normalizeNullableSha(claimedSha);
     if (normalized != null && !normalized.equals(stored.sha256()))
       throw new FileBridgeException(
@@ -265,6 +299,14 @@ public final class DefaultUploadService implements UploadService {
             now);
     UploadPart saved = uploads.saveCompletedPart(part);
     if (task.status() == UploadTaskStatus.CREATED) uploads.markUploading(id, task.version(), now);
+    LOGGER.log(
+        System.Logger.Level.DEBUG,
+        "Multipart part stored uploadId={0} storageId={1} part={2}/{3} bytes={4}",
+        id,
+        task.storageId(),
+        number,
+        task.totalParts(),
+        stored.size());
     return saved;
   }
 
@@ -289,7 +331,15 @@ public final class DefaultUploadService implements UploadService {
   @Override
   public UploadStatusView requestCompletion(UUID id) {
     UploadTask t = requireAccessible(id);
-    if (t.status() == UploadTaskStatus.COMPLETED) return view(t);
+    if (t.status() == UploadTaskStatus.COMPLETED) {
+      LOGGER.log(
+          System.Logger.Level.INFO,
+          "Multipart completion replay uploadId={0} fileId={1} storageId={2}",
+          id,
+          t.resultFileId(),
+          t.storageId());
+      return view(t);
+    }
     ensureActive(t);
     List<UploadPart> parts = uploads.findCompletedParts(id);
     if (parts.size() != t.totalParts())
@@ -297,7 +347,14 @@ public final class DefaultUploadService implements UploadService {
           FileBridgeErrorCode.INVALID_UPLOAD_STATE, "Not all parts are uploaded");
     Instant requestedAt = Instant.now();
     uploads.requestCompletion(id, requestedAt);
-    return view(uploads.findTask(id).orElse(t));
+    UploadStatusView result = view(uploads.findTask(id).orElse(t));
+    LOGGER.log(
+        System.Logger.Level.INFO,
+        "Multipart completion requested uploadId={0} storageId={1} totalParts={2}",
+        id,
+        t.storageId(),
+        t.totalParts());
+    return result;
   }
 
   /**
@@ -308,13 +365,34 @@ public final class DefaultUploadService implements UploadService {
   @Override
   public void cancel(UUID id) {
     UploadTask t = requireAccessible(id);
-    if (t.status() == UploadTaskStatus.COMPLETED) return;
+    if (t.status() == UploadTaskStatus.COMPLETED) {
+      LOGGER.log(
+          System.Logger.Level.DEBUG,
+          "Multipart cancellation ignored uploadId={0} status={1}",
+          id,
+          t.status());
+      return;
+    }
     if (uploads.cancel(id, Instant.now())) {
       try {
         asMultipart(t)
             .abortMultipart(new MultipartUploadHandle(t.providerUploadId(), t.objectKey()));
+        LOGGER.log(
+            System.Logger.Level.INFO,
+            "Multipart upload cancelled uploadId={0} storageId={1}",
+            id,
+            t.storageId());
       } catch (RuntimeException error) {
         recordAbortFailure(t, error);
+        LOGGER.log(
+            System.Logger.Level.WARNING,
+            "Multipart cancellation requires reconciliation uploadId="
+                + id
+                + " storageId="
+                + t.storageId()
+                + " errorCode="
+                + errorCode(error),
+            error);
       }
     }
   }
@@ -495,5 +573,66 @@ public final class DefaultUploadService implements UploadService {
    */
   private static boolean hasText(String s) {
     return s != null && !s.isBlank();
+  }
+
+  /**
+   * 记录秒传或幂等重放后的初始化结果。
+   *
+   * @param outcome 初始化结果来源
+   * @param result 初始化结果
+   * @param bytes 文件字节数
+   */
+  private void logInitialization(String outcome, UploadInitialization result, long bytes) {
+    LOGGER.log(
+        System.Logger.Level.INFO,
+        "Multipart initialization resolved outcome={0} mode={1} uploadId={2} fileId={3} storageId={4} bytes={5}",
+        outcome,
+        result.mode(),
+        result.uploadId(),
+        result.fileId(),
+        defaultStorage,
+        bytes);
+  }
+
+  /**
+   * 记录单个分片失败上下文；已知业务异常不重复打印堆栈。
+   *
+   * @param task 上传任务
+   * @param partNumber 分片序号
+   * @param expectedBytes 预期字节数
+   * @param error 失败异常
+   */
+  private static void logPartFailure(
+      UploadTask task, int partNumber, Long expectedBytes, RuntimeException error) {
+    String message =
+        "Multipart part failed uploadId="
+            + task.id()
+            + " storageId="
+            + task.storageId()
+            + " part="
+            + partNumber
+            + "/"
+            + task.totalParts()
+            + " expectedBytes="
+            + expectedBytes
+            + " errorCode="
+            + errorCode(error);
+    if (error instanceof FileBridgeException) {
+      LOGGER.log(System.Logger.Level.WARNING, message);
+    } else {
+      LOGGER.log(System.Logger.Level.ERROR, message, error);
+    }
+  }
+
+  /**
+   * 返回稳定业务错误码，未知异常退化为异常类型名。
+   *
+   * @param error 失败异常
+   * @return 错误码或异常类型名
+   */
+  private static String errorCode(RuntimeException error) {
+    return error instanceof FileBridgeException fileBridgeError
+        ? fileBridgeError.code().name()
+        : error.getClass().getSimpleName();
   }
 }

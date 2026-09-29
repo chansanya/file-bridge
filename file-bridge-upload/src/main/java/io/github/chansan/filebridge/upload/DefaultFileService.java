@@ -13,6 +13,7 @@ import java.util.*;
 
 /** 普通文件业务服务默认实现。 */
 public final class DefaultFileService implements FileService {
+  private static final System.Logger LOGGER = System.getLogger(DefaultFileService.class.getName());
   private final FileRepository files;
   private final IdempotencyRepository idempotency;
   private final ReconciliationRepository issues;
@@ -82,12 +83,27 @@ public final class DefaultFileService implements FileService {
   @Override
   public FileMetadata upload(UploadFileCommand command, InputStream source) {
     long started = System.nanoTime();
+    LOGGER.log(
+        System.Logger.Level.INFO,
+        "File upload started storageId={0} expectedBytes={1}",
+        defaultStorage,
+        command.expectedSize());
     try {
       FileMetadata result = uploadInternal(command, source);
-      metrics.record("upload", "success", result.size(), System.nanoTime() - started);
+      long duration = System.nanoTime() - started;
+      metrics.record("upload", "success", result.size(), duration);
+      LOGGER.log(
+          System.Logger.Level.INFO,
+          "File upload completed fileId={0} storageId={1} bytes={2} durationMs={3}",
+          result.fileId(),
+          defaultStorage,
+          result.size(),
+          durationMillis(duration));
       return result;
     } catch (RuntimeException error) {
-      metrics.record("upload", "failure", 0, System.nanoTime() - started);
+      long duration = System.nanoTime() - started;
+      metrics.record("upload", "failure", 0, duration);
+      logFailure("File upload failed", defaultStorage, command.expectedSize(), duration, error);
       throw error;
     }
   }
@@ -110,7 +126,15 @@ public final class DefaultFileService implements FileService {
               "FILE_UPLOAD",
               command.idempotencyKey(),
               fingerprint);
-      if (prior.isPresent()) return get(UUID.fromString(prior.get()));
+      if (prior.isPresent()) {
+        UUID fileId = UUID.fromString(prior.get());
+        LOGGER.log(
+            System.Logger.Level.INFO,
+            "File upload idempotency replay fileId={0} storageId={1}",
+            fileId,
+            defaultStorage);
+        return get(fileId);
+      }
     }
     StorageProvider storage = storages.require(defaultStorage);
     String key = keys.generate(actor, command.originalName());
@@ -124,6 +148,11 @@ public final class DefaultFileService implements FileService {
           contentTypes.detect(prefix, command.originalName(), command.declaredContentType());
       StoredObject stored =
           storage.write(new ObjectWriteRequest(key, command.expectedSize(), type), input);
+      LOGGER.log(
+          System.Logger.Level.DEBUG,
+          "File content stored storageId={0} bytes={1}",
+          stored.location().storageId(),
+          stored.size());
       quota.check(actor, stored.size());
       UUID objectId = UUID.randomUUID(), fileId = UUID.randomUUID();
       Instant now = Instant.now();
@@ -181,7 +210,13 @@ public final class DefaultFileService implements FileService {
           recordUntrackedObject(stored, cleanup);
         }
         if (e instanceof IdempotencyReplayException replay) {
-          return get(UUID.fromString(replay.responseValue()));
+          UUID replayedFileId = UUID.fromString(replay.responseValue());
+          LOGGER.log(
+              System.Logger.Level.INFO,
+              "File upload concurrent replay fileId={0} storageId={1}",
+              replayedFileId,
+              defaultStorage);
+          return get(replayedFileId);
         }
         throw e;
       }
@@ -212,10 +247,19 @@ public final class DefaultFileService implements FileService {
   @Override
   public FileResource download(UUID fileId) {
     Resolved r = resolve(fileId);
+    String storageId = r.object.location().storageId();
+    LOGGER.log(
+        System.Logger.Level.DEBUG,
+        "File download opened fileId={0} storageId={1} expectedBytes={2}",
+        fileId,
+        storageId,
+        r.object.size());
     return new FileResource(
         metadata(r.reference, r.object),
         new MetricsInputStream(
-            storages.require(r.object.location().storageId()).open(r.object.location()),
+            storages.require(storageId).open(r.object.location()),
+            fileId,
+            storageId,
             r.object.size(),
             metrics));
   }
@@ -247,6 +291,23 @@ public final class DefaultFileService implements FileService {
     Resolved r = resolve(fileId);
     policy.checkDelete(actors.currentActor(), r.reference);
     tx.required(() -> files.markReferenceDeleted(fileId, Instant.now()));
+  }
+
+  /** {@inheritDoc} */
+  @Override
+  public PageResult<FileMetadata> list(int page, int size, String nameQuery) {
+    Actor actor = actors.currentActor();
+    int safePage = Math.max(1, page);
+    int safeSize = Math.max(1, Math.min(100, size));
+    int offset = (safePage - 1) * safeSize;
+    long total = files.countReferences(actor.tenantId(), actor.ownerId(), nameQuery);
+    List<FileReference> refs =
+        files.findReferences(actor.tenantId(), actor.ownerId(), nameQuery, offset, safeSize);
+    List<FileMetadata> items = new ArrayList<>();
+    for (FileReference ref : refs) {
+      files.findObject(ref.objectId()).ifPresent(obj -> items.add(metadata(ref, obj)));
+    }
+    return new PageResult<>(total, safePage, safeSize, items);
   }
 
   /**
@@ -364,6 +425,60 @@ public final class DefaultFileService implements FileService {
    */
   private static boolean hasText(String s) {
     return s != null && !s.isBlank();
+  }
+
+  /**
+   * 记录普通上传失败摘要；已知业务异常不重复打印堆栈。
+   *
+   * @param operation 操作名称
+   * @param storageId 存储实例 ID
+   * @param expectedBytes 预期字节数
+   * @param duration 纳秒耗时
+   * @param error 失败异常
+   */
+  private static void logFailure(
+      String operation,
+      String storageId,
+      Long expectedBytes,
+      long duration,
+      RuntimeException error) {
+    String message =
+        operation
+            + " storageId="
+            + storageId
+            + " expectedBytes="
+            + expectedBytes
+            + " durationMs="
+            + durationMillis(duration)
+            + " errorCode="
+            + errorCode(error);
+    if (error instanceof FileBridgeException) {
+      LOGGER.log(System.Logger.Level.WARNING, message);
+    } else {
+      LOGGER.log(System.Logger.Level.ERROR, message, error);
+    }
+  }
+
+  /**
+   * 返回稳定业务错误码，未知异常退化为异常类型名。
+   *
+   * @param error 失败异常
+   * @return 错误码或异常类型名
+   */
+  private static String errorCode(RuntimeException error) {
+    return error instanceof FileBridgeException fileBridgeError
+        ? fileBridgeError.code().name()
+        : error.getClass().getSimpleName();
+  }
+
+  /**
+   * 将纳秒耗时转换为日志使用的毫秒值。
+   *
+   * @param durationNanos 纳秒耗时
+   * @return 毫秒耗时
+   */
+  private static long durationMillis(long durationNanos) {
+    return Duration.ofNanos(durationNanos).toMillis();
   }
 
   /**

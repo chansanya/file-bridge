@@ -87,6 +87,13 @@ public final class UploadCompletionWorker implements AutoCloseable {
     }
 
     UploadTask task = uploads.findTask(snapshot.id()).orElseThrow();
+    LOGGER.log(
+        System.Logger.Level.INFO,
+        "Multipart completion started uploadId={0} storageId={1} bytes={2} workerId={3}",
+        task.id(),
+        task.storageId(),
+        task.expectedSize(),
+        workerId);
     AtomicBoolean leaseLost = new AtomicBoolean(false);
     long heartbeatMillis = Math.max(1000, lease.toMillis() / 3);
     ScheduledFuture<?> heartbeat =
@@ -117,22 +124,47 @@ public final class UploadCompletionWorker implements AutoCloseable {
                       new UploadedPart(
                           part.partNumber(), part.size(), part.sha256(), part.providerPartTag()))
               .toList();
+      LOGGER.log(
+          System.Logger.Level.DEBUG,
+          "Multipart completion parts loaded uploadId={0} completedParts={1}/{2}",
+          task.id(),
+          parts.size(),
+          task.totalParts());
       ObjectLocation target = storage.locate(task.objectKey());
-      StoredObject stored =
-          storage
-              .stat(target)
-              .orElseGet(
-                  () ->
-                      multipart.completeMultipart(
-                          new MultipartUploadHandle(task.providerUploadId(), task.objectKey()),
-                          parts,
-                          task.contentType()));
+      Optional<StoredObject> existing = storage.stat(target);
+      StoredObject stored;
+      if (existing.isPresent()) {
+        stored = existing.get();
+        LOGGER.log(
+            System.Logger.Level.INFO,
+            "Multipart completed object recovered uploadId={0} storageId={1}",
+            task.id(),
+            task.storageId());
+      } else {
+        stored =
+            multipart.completeMultipart(
+                new MultipartUploadHandle(task.providerUploadId(), task.objectKey()),
+                parts,
+                task.contentType());
+        LOGGER.log(
+            System.Logger.Level.INFO,
+            "Multipart parts merged uploadId={0} storageId={1} parts={2}",
+            task.id(),
+            task.storageId(),
+            parts.size());
+      }
       requireLease(leaseLost);
       if (!uploads.moveToVerifying(task.id(), workerId, Instant.now())) {
         throw new FileBridgeException(
             FileBridgeErrorCode.INVALID_UPLOAD_STATE, "Completion lease was lost");
       }
 
+      LOGGER.log(
+          System.Logger.Level.INFO,
+          "Multipart verification started uploadId={0} storageId={1} expectedBytes={2}",
+          task.id(),
+          task.storageId(),
+          task.expectedSize());
       Verified verified = verify(multipart, stored.location());
       requireLease(leaseLost);
       if (verified.size != task.expectedSize()
@@ -178,15 +210,25 @@ public final class UploadCompletionWorker implements AutoCloseable {
                   FileBridgeErrorCode.INVALID_UPLOAD_STATE, "Completion lease was lost");
             }
           });
-      metrics.record("completion", "success", task.expectedSize(), System.nanoTime() - started);
+      long duration = System.nanoTime() - started;
+      metrics.record("completion", "success", task.expectedSize(), duration);
+      LOGGER.log(
+          System.Logger.Level.INFO,
+          "Multipart completion finished uploadId={0} fileId={1} storageId={2} bytes={3} durationMs={4}",
+          task.id(),
+          fileId,
+          task.storageId(),
+          verified.size,
+          Duration.ofNanos(duration).toMillis());
       return true;
     } catch (RuntimeException error) {
-      metrics.record("completion", "failure", task.expectedSize(), System.nanoTime() - started);
-      LOGGER.log(System.Logger.Level.WARNING, "Upload completion failed: " + task.id(), error);
+      long duration = System.nanoTime() - started;
+      metrics.record("completion", "failure", task.expectedSize(), duration);
       Instant failedAt = Instant.now();
       String message =
           error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
-      if (isPermanent(error)) {
+      boolean permanent = isPermanent(error);
+      if (permanent) {
         uploads.fail(task.id(), workerId, message, failedAt);
       } else {
         uploads.retryCompletion(
@@ -197,6 +239,7 @@ public final class UploadCompletionWorker implements AutoCloseable {
             MAX_COMPLETION_ATTEMPTS,
             failedAt);
       }
+      logFailure(task, duration, permanent, error);
       return false;
     } finally {
       heartbeat.cancel(false);
@@ -222,6 +265,48 @@ public final class UploadCompletionWorker implements AutoCloseable {
           true;
       default -> false;
     };
+  }
+
+  /**
+   * 记录后台完成失败及后续处理动作。
+   *
+   * @param task 上传任务
+   * @param duration 纳秒耗时
+   * @param permanent 是否为永久失败
+   * @param error 失败异常
+   */
+  private static void logFailure(
+      UploadTask task, long duration, boolean permanent, RuntimeException error) {
+    String message =
+        "Multipart completion failed uploadId="
+            + task.id()
+            + " storageId="
+            + task.storageId()
+            + " bytes="
+            + task.expectedSize()
+            + " durationMs="
+            + Duration.ofNanos(duration).toMillis()
+            + " action="
+            + (permanent ? "failed" : "retry-scheduled")
+            + " errorCode="
+            + errorCode(error);
+    if (error instanceof FileBridgeException) {
+      LOGGER.log(System.Logger.Level.WARNING, message);
+    } else {
+      LOGGER.log(System.Logger.Level.ERROR, message, error);
+    }
+  }
+
+  /**
+   * 返回稳定业务错误码，未知异常退化为异常类型名。
+   *
+   * @param error 失败异常
+   * @return 错误码或异常类型名
+   */
+  private static String errorCode(RuntimeException error) {
+    return error instanceof FileBridgeException fileBridgeError
+        ? fileBridgeError.code().name()
+        : error.getClass().getSimpleName();
   }
 
   /**

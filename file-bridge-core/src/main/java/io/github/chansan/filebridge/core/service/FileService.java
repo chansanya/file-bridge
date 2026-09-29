@@ -2,6 +2,7 @@ package io.github.chansan.filebridge.core.service;
 
 import io.github.chansan.filebridge.core.model.FileMetadata;
 import io.github.chansan.filebridge.core.model.FileResource;
+import io.github.chansan.filebridge.core.model.PageResult;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
@@ -49,4 +50,14 @@ public interface FileService {
    * @param fileId 对外业务文件 ID
    */
   void delete(UUID fileId);
+
+  /**
+   * 分页查询当前用户有权访问的文件资产列表。
+   *
+   * @param page 页码，从 1 开始
+   * @param size 每页大小
+   * @param nameQuery 文件名过滤关键字，为空时不限制
+   * @return 分页结果
+   */
+  PageResult<FileMetadata> list(int page, int size, String nameQuery);
 }

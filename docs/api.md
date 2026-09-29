@@ -122,7 +122,42 @@ Idempotency-Key: optional-key
 - 同一幂等键对应不同请求时返回 `409`；
 - 幂等键不跨租户、用户共享。
 
-### 4.2 查询元数据
+### 4.2 分页查询文件列表
+
+```http
+GET /api/file-bridge/files?page=1&size=10&name=test
+```
+
+请求参数：
+
+| 参数 | 必填 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `page` | 否 | `1` | 页码，从 1 开始 |
+| `size` | 否 | `10` | 每页数量，最大 100 |
+| `name` | 否 | 空 | 文件名模糊搜索过滤关键字 |
+
+成功响应：`200 OK`
+
+```json
+{
+  "total": 42,
+  "page": 1,
+  "size": 10,
+  "items": [
+    {
+      "fileId": "9747bcda-b8d3-489f-a087-b9d5524537cc",
+      "originalName": "report.pdf",
+      "size": 102400,
+      "sha256": "64位十六进制摘要",
+      "contentType": "application/pdf",
+      "status": "ACTIVE",
+      "createdAt": "2026-09-28T03:00:00Z"
+    }
+  ]
+}
+```
+
+### 4.3 查询元数据
 
 ```http
 GET /api/file-bridge/files/{fileId}
@@ -130,7 +165,7 @@ GET /api/file-bridge/files/{fileId}
 
 成功响应：`200 OK`，响应结构与普通上传相同。
 
-### 4.3 下载文件
+### 4.4 下载文件
 
 ```http
 GET /api/file-bridge/files/{fileId}/download
@@ -143,7 +178,7 @@ GET /api/file-bridge/files/{fileId}/download
 - `Content-Type` 为已保存内容类型；
 - `Content-Disposition` 使用安全编码后的原始文件名。
 
-### 4.4 创建临时地址
+### 4.5 创建临时地址
 
 ```http
 POST /api/file-bridge/files/{fileId}/access-url
@@ -172,7 +207,7 @@ Content-Type: application/json
 }
 ```
 
-### 4.5 删除文件引用
+### 4.6 删除文件引用
 
 ```http
 DELETE /api/file-bridge/files/{fileId}

@@ -258,6 +258,41 @@ public final class JdbcFileRepository implements FileRepository {
    * @param now 当前时间
    */
   @Override
+  public long countReferences(String tenantId, String ownerId, String nameQuery) {
+    StringBuilder sql =
+        new StringBuilder(
+            "SELECT COUNT(*) FROM fb_file_reference WHERE tenant_id=:tenant AND owner_id=:owner AND status='ACTIVE'");
+    MapSqlParameterSource params =
+        new MapSqlParameterSource().addValue("tenant", tenantId).addValue("owner", ownerId);
+    if (nameQuery != null && !nameQuery.isBlank()) {
+      sql.append(" AND original_name LIKE :name");
+      params.addValue("name", "%" + nameQuery.trim() + "%");
+    }
+    Long count = jdbc.queryForObject(sql.toString(), params, Long.class);
+    return count == null ? 0 : count;
+  }
+
+  @Override
+  public List<FileReference> findReferences(
+      String tenantId, String ownerId, String nameQuery, int offset, int limit) {
+    StringBuilder sql =
+        new StringBuilder(
+            "SELECT * FROM fb_file_reference WHERE tenant_id=:tenant AND owner_id=:owner AND status='ACTIVE'");
+    MapSqlParameterSource params =
+        new MapSqlParameterSource()
+            .addValue("tenant", tenantId)
+            .addValue("owner", ownerId)
+            .addValue("offset", Math.max(0, offset))
+            .addValue("limit", Math.max(1, limit));
+    if (nameQuery != null && !nameQuery.isBlank()) {
+      sql.append(" AND original_name LIKE :name");
+      params.addValue("name", "%" + nameQuery.trim() + "%");
+    }
+    sql.append(" ORDER BY created_at DESC LIMIT :limit OFFSET :offset");
+    return jdbc.query(sql.toString(), params, JdbcFileRepository::ref);
+  }
+
+  @Override
   public void markObjectError(UUID id, String error, Instant now) {
     jdbc.update(
         "UPDATE fb_storage_object SET"

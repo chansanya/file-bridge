@@ -7,11 +7,13 @@ spring:
     password: filebridge
   flyway:
     locations: classpath:db/filebridge/migration
+  profiles:
+    active: demo
 file-bridge:
   enabled: true
   default-storage: local-main
   upload:
-    max-file-size: 2GB
+    max-file-size: 20GB
     preferred-part-size: 8MB
     task-ttl: 24h
   storages:
@@ -19,6 +21,13 @@ file-bridge:
       type: local
       root-path: ./data/files
       temp-path: ./data/uploads
+
+logging:
+  pattern:
+    level: "%5p [requestId:%X{requestId:-}]"
+  level:
+    io.github.chansan.example.web.ApiLoggingFilter: info
+    io.github.chansan.filebridge.upload: info
 
 example:
   file-bridge:

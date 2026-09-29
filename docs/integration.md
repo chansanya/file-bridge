@@ -1,21 +1,24 @@
-# FileBridge 接入指南
+# FileBridge 完整集成与移植指南
 
-## 1. 接入条件
+本指南旨在指导如何将 FileBridge（包括后端存储内核与前端管理控制台）快速、规范地移植到外部业务工程中。
 
-| 项目 | 要求 |
-| --- | --- |
-| Java | 17 或更高版本 |
-| Spring Boot | 4.1.x |
-| 数据库 | MySQL 8.4 |
-| 数据源 | 宿主应用提供 `DataSource` 和事务管理器 |
-| 存储 | 至少一个 `StorageProvider` |
-| 安全扩展 | `CurrentActorProvider`、`FileAccessPolicy` |
+---
 
-## 2. 引入依赖
+## 1. 基础依赖与环境要求
 
-### 2.1 Java 服务方式
+| 技术栈 | 版本要求 | 说明 |
+| --- | --- | --- |
+| **Java** | 17 或更高版本 | 支持 Record 与高级并发特性 |
+| **Spring Boot** | 3.x 或 4.x | 组件基于 Spring 自动装配契约 |
+| **数据库** | MySQL 5.7 ~ 8.4 LTS | 标准 SQL 语法兼容 |
+| **前端** | Vue 3 + TypeScript | 支持任意构建工具（Vite / Webpack） |
 
-只使用 Java 服务接口时，引入 Starter：
+---
+
+## 2. 后端集成步骤（Spring Boot）
+
+### 2.1 引入 Starter 依赖
+在你的业务工程 `pom.xml` 中引入 FileBridge 官方 Starter：
 
 ```xml
 <dependency>
@@ -25,102 +28,7 @@
 </dependency>
 ```
 
-Starter 默认提供：
-
-- 核心领域和上传服务
-- JDBC 持久化实现
-- 本地文件系统适配器
-- Spring Boot 自动配置
-
-### 2.2 REST 接口与独立示例工程
-
-Starter 只提供 Java 服务能力，不包含 Controller、Servlet Filter 或 HTTP 异常映射。
-
-仓库中的 [`example`](../example) 是一个独立 Spring Boot 工程：
-
-- 使用 `spring-boot-starter-parent`，不继承 FileBridge Parent；
-- 只依赖公开入口 `file-bridge-spring-boot-starter`；
-- 自己定义 REST Controller、错误响应和请求过滤器；
-- 模拟真实业务项目如何封装自己的 HTTP API。
-
-`example` 不是供其他项目引入的依赖。接入方如果需要 REST，可以参考其中的 Controller，根据自己的认证、响应格式和接口规范进行实现。
-
-本地运行独立示例前，先将 Starter 安装到本地 Maven 仓库：
-
-```bash
-./mvnw install -DskipTests -pl file-bridge-spring-boot-starter -am
-./mvnw -f example/pom.xml spring-boot:run
-```
-
-本地启动时显式启用 Demo 身份：
-
-```bash
-./mvnw -f example/pom.xml spring-boot:run -Dspring-boot.run.profiles=demo
-```
-
-启动后访问 <http://localhost:8080/>。控制台支持拖放多文件、小文件直传、大文件分片、秒传探测、断点续传和上传状态控制，具体行为见 [Example 上传控制台](example.md)。
-
-## 3. 初始化数据库
-
-数据库脚本位于 [`docs/database`](database/README.md)：
-
-1. `V1__file_objects_and_references.sql`
-2. `V2__multipart_upload.sql`
-3. `V3__cleanup_and_reconciliation.sql`
-
-必须按版本顺序执行。
-
-Starter 本身：
-
-- 不引入 Flyway；
-- 不主动创建或修改数据库表；
-- 不删除宿主业务数据。
-
-如果宿主已经使用 Flyway，可以将脚本复制到宿主项目自己的迁移目录，由宿主管理版本和发布时间。组件 JAR 内也包含迁移资源；宿主若扫描默认的 `classpath:db/filebridge/migration`，应确认不会与现有版本号冲突。
-
-## 4. 配置存储实例
-
-### 4.1 为什么是必需项
-
-MySQL 只保存文件元数据，不保存文件正文。FileBridge 的以下操作都依赖真实存储：
-
-- 普通上传写入文件正文；
-- 分片上传保存临时分片并生成最终对象；
-- 下载打开对象流；
-- 删除和清理移除物理对象；
-- 对账确认数据库记录与物理文件一致。
-
-因此，`file-bridge.enabled=true` 时必须满足以下条件：
-
-1. 至少存在一个已启用的存储实例；
-2. `default-storage` 必须指向该实例；
-3. 历史对象记录中的 `storageId` 必须继续可用。
-
-启动时 FileBridge 会执行默认存储校验。如果 `default-storage` 找不到对应实例，应用将直接启动失败，而不是拖到上传请求发生时再报错。
-
-### 4.2 最小本地配置
-
-本地目录已经构成完整存储实例，不需要额外部署对象存储服务：
-
-```yaml
-file-bridge:
-  enabled: true
-  default-storage: local-main
-  storages:
-    local-main:
-      type: local
-      root-path: ./data/files
-      temp-path: ./data/uploads
-```
-
-`local-main` 是稳定的存储实例 ID，必须与 `default-storage` 完全一致。
-
-生产环境不要随意修改该 ID。数据库中的历史对象会使用原 ID 查找存储适配器。
-
-### 4.3 使用云存储
-
-Starter 不自动引入云 SDK。使用哪个平台，就显式添加对应模块：
-
+若使用云对象存储，按需引入对应厂商适配器：
 ```xml
 <!-- MinIO -->
 <dependency>
@@ -128,14 +36,12 @@ Starter 不自动引入云 SDK。使用哪个平台，就显式添加对应模�
   <artifactId>file-bridge-storage-minio</artifactId>
   <version>0.1.0-SNAPSHOT</version>
 </dependency>
-
 <!-- 阿里云 OSS -->
 <dependency>
   <groupId>io.github.chansan</groupId>
   <artifactId>file-bridge-storage-aliyun</artifactId>
   <version>0.1.0-SNAPSHOT</version>
 </dependency>
-
 <!-- 腾讯云 COS -->
 <dependency>
   <groupId>io.github.chansan</groupId>
@@ -144,153 +50,203 @@ Starter 不自动引入云 SDK。使用哪个平台，就显式添加对应模�
 </dependency>
 ```
 
-完整配置示例见 [配置文档](configuration.md)。
+### 2.2 执行数据库迁移脚本
+按版本顺序执行 `docs/database/` 目录下的 3 个 SQL 脚本：
+1. `V1__file_objects_and_references.sql`：物理对象表、业务引用表、幂等记录表；
+2. `V2__multipart_upload.sql`：分片上传任务表、分片明细表；
+3. `V3__cleanup_and_reconciliation.sql`：后台对账与物理对象回收表。
 
-### 4.4 自定义存储实现
+语法全量兼容 MySQL 5.7 及 MySQL 8.x。
 
-宿主可以实现 `StorageProvider` 或 `MultipartStorageProvider`，并自行提供 `StorageRegistry` Bean：
-
-```java
-@Bean
-StorageRegistry storageRegistry(MyStorageProvider provider) {
-  return new DefaultStorageRegistry(List.of(provider));
-}
-```
-
-即使使用自定义 Bean，注册表中仍必须存在 `default-storage` 指定的实例。
-
-## 5. 提供可信身份
-
-FileBridge 不接受请求参数中的 `tenantId` 或 `ownerId` 作为可信身份。宿主必须从已认证上下文中读取身份：
-
-```java
-@Bean
-CurrentActorProvider currentActorProvider() {
-  return () -> {
-    // 示例：实际项目应从 Spring Security、网关透传凭证或内部认证上下文读取。
-    String tenantId = TrustedSecurityContext.requireTenantId();
-    String ownerId = TrustedSecurityContext.requireUserId();
-    return new Actor(tenantId, ownerId, Map.of());
-  };
-}
-```
-
-禁止直接采用以下做法：
-
-```java
-// 错误示例：请求头可以被客户端伪造。
-String ownerId = request.getHeader("X-User-Id");
-```
-
-除非该请求头已经由可信网关签名、校验，并且应用明确阻止客户端绕过网关访问。
-
-## 6. 提供访问策略
-
-生产环境必须提供 `FileAccessPolicy` Bean。组件不会默认“全部允许”：
-
-```java
-@Bean
-FileAccessPolicy fileAccessPolicy() {
-  return new FileAccessPolicy() {
-    @Override
-    public void checkUpload(Actor actor, String businessType, String businessId) {
-      // 校验当前身份是否允许向该业务上下文上传。
-    }
-
-    @Override
-    public void checkRead(Actor actor, FileReference reference) {
-      requireOwner(actor, reference.tenantId(), reference.ownerId());
-    }
-
-    @Override
-    public void checkDelete(Actor actor, FileReference reference) {
-      requireOwner(actor, reference.tenantId(), reference.ownerId());
-    }
-
-    @Override
-    public void checkUploadTask(Actor actor, UploadTask task) {
-      requireOwner(actor, task.tenantId(), task.ownerId());
-    }
-
-    @Override
-    public boolean canReuse(Actor actor, FileReference candidate) {
-      return actor.tenantId().equals(candidate.tenantId())
-          && actor.ownerId().equals(candidate.ownerId());
-    }
-
-    private void requireOwner(Actor actor, String tenantId, String ownerId) {
-      if (!actor.tenantId().equals(tenantId) || !actor.ownerId().equals(ownerId)) {
-        throw new FileBridgeException(FileBridgeErrorCode.ACCESS_DENIED, "Resource not found");
-      }
-    }
-  };
-}
-```
-
-对无权访问的具体文件和上传任务，建议返回与资源不存在相同的外部表现，避免泄露资源是否存在。
-
-## 7. 最小完整配置
-
+### 2.3 核心配置属性 (`application.yml`)
 ```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/file_bridge?serverTimezone=UTC
-    username: filebridge
-    password: ${FILE_BRIDGE_DB_PASSWORD}
-
 file-bridge:
   enabled: true
   default-storage: local-main
-  web:
-    enabled: true
-    base-path: /api/file-bridge
   upload:
-    max-file-size: 2GB
-    preferred-part-size: 8MB
-    task-ttl: 24h
-    lease-duration: 10m
+    max-file-size: 20GB       # 单文件上传上限
+    preferred-part-size: 8MB   # 推荐分片大小
+    task-ttl: 24h              # 分片任务有效期
   deduplication:
-    enabled: true
-    scope: USER
-  cleanup:
-    enabled: true
-    interval: 30m
-    unreferenced-retention: 24h
+    enabled: true             # 启用秒传
+    scope: USER               # 秒传隔离范围：USER（同用户）或 TENANT（同租户）
   storages:
     local-main:
       type: local
-      root-path: ./data/files
-      temp-path: ./data/uploads
+      # 生产环境建议配置绝对路径，避免由于启动工作目录差异导致相对路径漂移
+      root-path: ${FILE_BRIDGE_ROOT_PATH:/var/data/file-bridge/files}
+      temp-path: ${FILE_BRIDGE_TEMP_PATH:/var/data/file-bridge/uploads}
 ```
 
-## 8. 启动检查清单
+### 2.4 提供可信身份与安全策略 Bean（必需项）
+FileBridge 坚决不信任来自前端请求参数中的租户或用户 ID，必须由宿主应用从自身安全上下文中提取：
 
-- [ ] Java 和 Spring Boot 版本符合要求
-- [ ] MySQL 脚本已经按顺序执行
-- [ ] `default-storage` 对应实例真实存在
-- [ ] 本地目录可创建、可读、可写，或云存储凭证有效
-- [ ] 已提供 `CurrentActorProvider`
-- [ ] 已提供 `FileAccessPolicy`
-- [ ] 需要 REST 时已参考 `example` 在业务工程中实现 Controller
-- [ ] 使用云存储时已引入对应 `storage-*` 模块
-- [ ] 密钥来自环境变量或宿主密钥系统，而不是提交到仓库
+```java
+@Configuration
+public class FileBridgeSecurityConfig {
 
-## 9. 暂不使用时关闭
+  @Bean
+  public CurrentActorProvider currentActorProvider() {
+    return () -> {
+      // 从 Spring Security / SecurityContextHolder / JWT 中读取已校验的身份
+      String tenantId = SecurityUtils.getCurrentTenantId();
+      String userId = SecurityUtils.getCurrentUserId();
+      return new Actor(tenantId, userId, Map.of());
+    };
+  }
 
-如果某个环境只希望保留依赖但暂不启用 FileBridge：
+  @Bean
+  public FileAccessPolicy fileAccessPolicy() {
+    return new FileAccessPolicy() {
+      @Override
+      public void checkUpload(Actor actor, String businessType, String businessId) {
+        // 可选：校验业务上下文上传配额或权限
+      }
 
-```yaml
-file-bridge:
-  enabled: false
+      @Override
+      public void checkRead(Actor actor, FileReference ref) {
+        if (!actor.tenantId().equals(ref.tenantId()) || !actor.ownerId().equals(ref.ownerId())) {
+          throw new FileBridgeException(FileBridgeErrorCode.ACCESS_DENIED, "Resource not found");
+        }
+      }
+
+      @Override
+      public void checkDelete(Actor actor, FileReference ref) {
+        if (!actor.tenantId().equals(ref.tenantId()) || !actor.ownerId().equals(ref.ownerId())) {
+          throw new FileBridgeException(FileBridgeErrorCode.ACCESS_DENIED, "Resource not found");
+        }
+      }
+
+      @Override
+      public void checkUploadTask(Actor actor, UploadTask task) {
+        if (!actor.tenantId().equals(task.tenantId()) || !actor.ownerId().equals(task.ownerId())) {
+          throw new FileBridgeException(FileBridgeErrorCode.ACCESS_DENIED, "Resource not found");
+        }
+      }
+
+      @Override
+      public boolean canReuse(Actor actor, FileReference candidate) {
+        return actor.tenantId().equals(candidate.tenantId())
+            && actor.ownerId().equals(candidate.ownerId());
+      }
+    };
+  }
+}
 ```
 
-关闭后不会创建 FileBridge 自动配置 Bean，也不要求提供存储实例和安全扩展 Bean。
-## 10. 可选 MinIO 契约测试
+### 2.5 暴露 REST API 控制器
+Starter 本身保持纯净的 Java 服务层抽象，不强绑特定的 Web 拦截规则。业务工程直接复用或拷贝 `example` 模块中的标准控制器：
 
-MinIO 契约测试需要从 Quay 拉取真实 MinIO 镜像，默认构建不会执行。显式开启：
+- **`FileController.java`**：
+  - `POST /api/file-bridge/files`：普通流式文件上传
+  - `GET /api/file-bridge/files`：文件资产分页与模糊检索（返回 `PageResult<FileMetadata>`）
+  - `GET /api/file-bridge/files/{id}/download`：全量普通下载（200 OK）与标准 HTTP Range 分片并发下载（206 Partial Content）一体机
+  - `POST /api/file-bridge/files/{id}/access-url`：云对象存储 300 秒临时直链生成
+  - `DELETE /api/file-bridge/files/{id}`：逻辑删除文件引用
+- **`UploadController.java`**：
+  - `POST /api/file-bridge/uploads`：分片任务初始化与秒传探针
+  - `PUT /api/file-bridge/uploads/{id}/parts/{partNumber}`：单个二进制分片流式上传
+  - `GET /api/file-bridge/uploads/{id}`：上传状态与已确认分片列表查询
+  - `POST /api/file-bridge/uploads/{id}/complete`：触发后台合并校验（202 异步对账 / 200 成功）
+  - `DELETE /api/file-bridge/uploads/{id}`：取消上传任务
 
-```bash
-FILE_BRIDGE_MINIO_TEST=true ./mvnw -pl file-bridge-storage-minio -am test
+---
+
+## 3. 前端集成步骤（Vue 3）
+
+前端提供两种层级的复用方式，各取所需。
+
+### 方式 A：纯逻辑 Headless Composable 移植（推荐自由定制 UI）
+
+#### 1. 复制核心逻辑文件
+将项目根目录 `console/src/composables/` 下的 3 个文件复制到目标工程的 `src/composables/`：
+- `useFileBridge.ts`：核心逻辑、全量 TypeScript 接口定义、业务错误字典 `translateError`；
+- `sha256.ts`：纯 JS/TS 实现的零依赖增量哈希算法；
+- `hash-worker.ts`：独立后台 Web Worker 哈希运算脚本。
+
+#### 2. 在业务页面中使用
+```vue
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import { useFileBridge } from '@/composables/useFileBridge';
+
+const {
+  fileQueue,          // 响应式上传任务队列
+  addFiles,           // 触发双模上传（≤10MB 直传，>10MB Web Worker 切片）
+  pauseUpload,        // 暂停上传
+  resumeUpload,       // 恢复上传
+  retryUpload,        // 断点续传重试
+  cancelUpload,       // 取消上传
+  downloadFile,       // 触发下载（支持普通流式与并发分片）
+  fetchFileList,      // 分页查询资产列表
+  deleteFile,         // 物理/逻辑删除
+} = useFileBridge({
+  apiBase: '/api/file-bridge',
+  onUploadError(item, err) {
+    console.warn('上传遇到限制:', item.name, err);
+  },
+  onUploadSuccess(item) {
+    console.info('文件入库成功:', item.name);
+  },
+});
+
+// 分页列表查询
+const fileList = ref([]);
+const totalCount = ref(0);
+
+const loadData = async () => {
+  const res = await fetchFileList(1, 10, '');
+  fileList.value = res.items;
+  totalCount.value = res.total;
+};
+
+// 三模下载调用
+// 1. 浏览器原生下载（零网页内存占用，直写磁盘）
+const downloadNative = (fileId: string, name: string) => {
+  const a = document.createElement('a');
+  a.href = `/api/file-bridge/files/${fileId}/download`;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+};
+
+// 2. 普通流式下载（带实时进度条与测速）
+const downloadStream = async (row: any) => {
+  await downloadFile(row.fileId, row.originalName, row.size, { chunked: false });
+};
+
+// 3. 多线程并发分片下载（HTTP Range 206）
+const downloadChunked = async (row: any) => {
+  await downloadFile(row.fileId, row.originalName, row.size, { chunked: true, concurrency: 4 });
+};
+
+onMounted(loadData);
+</script>
 ```
 
-若当前网络无法访问 `quay.io`，测试会因镜像拉取失败而无法验证；不能把这种情况记录为测试通过。
+---
+
+### 方式 B：完整独立管理控制台复用
+
+如果你希望直接使用蓝白现代化管理控制台：
+
+1. **直接运行独立工程**：
+   在 `console/` 目录下执行：
+   ```bash
+   npm install
+   npm run dev
+   ```
+   Vite 会自动代理请求至本地 Spring Boot（`http://localhost:8080`），开发体验极速。
+
+2. **单体 Fat JAR 一键交付**：
+   在 `console/` 目录下执行：
+   ```bash
+   npm run build
+   ```
+   产物会自动打包并注入到后端的 `example/src/main/resources/static/` 目录下。接着执行：
+   ```bash
+   ./mvnw clean package -DskipTests -pl example -am
+   java -jar example/target/example-0.1.0-SNAPSHOT.jar
+   ```
+   启动后直接访问 `http://localhost:8080/`，单体 JAR 包自带完整的蓝白控制台，零外部 Web 服务器依赖！

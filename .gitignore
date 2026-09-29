@@ -11,4 +11,6 @@ Thumbs.db
 .env
 data/
 example/data/
+console/node_modules/
+console/.vite/
 *:Zone.Identifier

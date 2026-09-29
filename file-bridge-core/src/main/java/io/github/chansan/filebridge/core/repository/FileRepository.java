@@ -113,4 +113,27 @@ public interface FileRepository {
    * @param now 当前时间
    */
   void markObjectError(UUID objectId, String error, Instant now);
+
+  /**
+   * 统计有效业务引用总数。
+   *
+   * @param tenantId 租户 ID
+   * @param ownerId 用户 ID
+   * @param nameQuery 文件名过滤关键字，为空时不限制
+   * @return 匹配的有效引用数
+   */
+  long countReferences(String tenantId, String ownerId, String nameQuery);
+
+  /**
+   * 分页查询有效业务引用。
+   *
+   * @param tenantId 租户 ID
+   * @param ownerId 用户 ID
+   * @param nameQuery 文件名过滤关键字，为空时不限制
+   * @param offset 偏移量
+   * @param limit 获取数量
+   * @return 业务引用列表
+   */
+  List<FileReference> findReferences(
+      String tenantId, String ownerId, String nameQuery, int offset, int limit);
 }

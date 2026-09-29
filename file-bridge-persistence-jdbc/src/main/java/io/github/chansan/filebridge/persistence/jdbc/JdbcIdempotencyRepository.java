@@ -63,11 +63,11 @@ public final class JdbcIdempotencyRepository implements IdempotencyRepository {
     jdbc.update(
         "INSERT INTO fb_idempotency_record"
             + "(tenant_id,owner_id,operation_name,idempotency_key,request_hash,response_value,expires_at) "
-            + "VALUES(:t,:o,:op,:k,:h,:r,:e) AS incoming "
+            + "VALUES(:t,:o,:op,:k,:h,:r,:e) "
             + "ON DUPLICATE KEY UPDATE "
-            + "request_hash=IF(fb_idempotency_record.expires_at<=CURRENT_TIMESTAMP(6),incoming.request_hash,fb_idempotency_record.request_hash),"
-            + "response_value=IF(fb_idempotency_record.expires_at<=CURRENT_TIMESTAMP(6),incoming.response_value,fb_idempotency_record.response_value),"
-            + "expires_at=IF(fb_idempotency_record.expires_at<=CURRENT_TIMESTAMP(6),incoming.expires_at,fb_idempotency_record.expires_at)",
+            + "request_hash=IF(fb_idempotency_record.expires_at<=CURRENT_TIMESTAMP(6),VALUES(request_hash),fb_idempotency_record.request_hash),"
+            + "response_value=IF(fb_idempotency_record.expires_at<=CURRENT_TIMESTAMP(6),VALUES(response_value),fb_idempotency_record.response_value),"
+            + "expires_at=IF(fb_idempotency_record.expires_at<=CURRENT_TIMESTAMP(6),VALUES(expires_at),fb_idempotency_record.expires_at)",
         new MapSqlParameterSource()
             .addValue("t", t)
             .addValue("o", o)
