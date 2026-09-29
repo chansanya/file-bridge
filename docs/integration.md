@@ -279,3 +279,13 @@ file-bridge:
 ```
 
 关闭后不会创建 FileBridge 自动配置 Bean，也不要求提供存储实例和安全扩展 Bean。
+## 10. 可选 MinIO 契约测试
+
+MinIO 契约测试需要从 Quay 拉取真实 MinIO 镜像，默认构建不会执行。显式开启：
+
+```bash
+FILE_BRIDGE_MINIO_TEST=true ./mvnw -pl file-bridge-storage-minio -am test
+```
+
+若当前网络无法访问 `quay.io`，测试会因镜像拉取失败而无法验证；不能把这种情况记录为测试通过。
+
