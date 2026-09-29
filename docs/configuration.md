@@ -303,4 +303,4 @@ secret-key: ${STORAGE_SECRET_KEY}
 | `filebridge.amount` | 上传、下载字节数或后台处理数量 |
 | `filebridge.duration` | 上传、下载和完成任务耗时 |
 
-当前 operation 包括 `upload`、`download`、`completion`、`cleanup.uploads`、`cleanup.objects` 和 `reconciliation`。未提供 Micrometer 时使用空实现，不增加强制运行时依赖。
+当前 operation 包括 `upload`、`download`、`completion`、`cleanup.uploads`、`cleanup.objects` 和 `reconciliation`。下载结果区分 `success`、`incomplete` 和 `failure`。未提供 Micrometer 时使用空实现，不增加强制运行时依赖。

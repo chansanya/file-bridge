@@ -184,3 +184,5 @@ index.html
 浏览器根据 10 MiB 默认阈值选择普通上传或分片上传。大文件优先通过 Web Worker 计算 SHA-256，并使用 `localStorage` 保存 `uploadId` 以恢复缺失分片。文件队列按文件串行处理，单个大文件内部默认最多并发上传 3 个分片。
 
 前端摘要和任务缓存都不属于可信数据。服务端仍负责身份、权限、分片长度、最终大小和完整 SHA-256 校验。
+
+存储模块通过 `StorageProviderFactory` 和 Java `ServiceLoader` 注册，自动配置不再依赖反射类名。数据库与存储之间无法共享事务的失败会写入 `fb_reconciliation_issue`，由带租约和有限重试的对账任务恢复。
