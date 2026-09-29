@@ -37,7 +37,7 @@ public class FileBridgeMetricsAutoConfiguration {
   }
 
   @Bean
-  @ConditionalOnMissingBean
+  @ConditionalOnMissingBean({FileBridgeMetrics.class, MeterRegistry.class})
   FileBridgeMetrics noOpFileBridgeMetrics() {
     return FileBridgeMetrics.noop();
   }

@@ -28,11 +28,15 @@ class JdbcFileRepositoryTest {
         new DriverManagerDataSource(MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword());
     Flyway.configure()
         .dataSource(ds)
-        .locations("classpath:db/migration")
+        .locations("classpath:db/filebridge/migration")
         .cleanDisabled(false)
         .load()
         .clean();
-    Flyway.configure().dataSource(ds).locations("classpath:db/migration").load().migrate();
+    Flyway.configure()
+        .dataSource(ds)
+        .locations("classpath:db/filebridge/migration")
+        .load()
+        .migrate();
     jdbc = new NamedParameterJdbcTemplate(ds);
     repository = new JdbcFileRepository(jdbc);
     idempotencyRepository = new JdbcIdempotencyRepository(jdbc);
@@ -139,7 +143,9 @@ class JdbcFileRepositoryTest {
             "OBJECT_DELETE_FAILED:1",
             "OBJECT_DELETE_FAILED",
             "local-main",
+            null,
             "object-key",
+            null,
             UUID.randomUUID().toString(),
             "temporary failure",
             now,

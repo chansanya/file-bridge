@@ -75,7 +75,7 @@ file-bridge:
 ```bash
 docker compose up -d mysql
 ./mvnw install -DskipTests -pl file-bridge-spring-boot-starter -am
-./mvnw -f example/pom.xml spring-boot:run
+./mvnw -f example/pom.xml spring-boot:run -Dspring-boot.run.profiles=demo
 ```
 
 示例页面：<http://localhost:8080/>

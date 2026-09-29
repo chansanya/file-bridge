@@ -1,14 +1,12 @@
 spring:
   application:
     name: example
-  profiles:
-    active: demo
   datasource:
     url: jdbc:mysql://localhost:3306/file_bridge?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC
     username: filebridge
     password: filebridge
   flyway:
-    locations: classpath:db/migration
+    locations: classpath:db/filebridge/migration
 file-bridge:
   enabled: true
   default-storage: local-main

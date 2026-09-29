@@ -18,6 +18,7 @@
 | 5 | `V5__object_unreferenced_time.sql` | 无引用对象保留时间和删除竞态控制 |
 | 6 | `V6__reconciliation_retry_state.sql` | 对账问题指纹、租约、退避和处理结果 |
 | 7 | `V7__object_location_hash.sql` | 使用完整对象路径摘要保证定位唯一性 |
+| 8 | `V8__reconciliation_location_details.sql` | 对账恢复所需 Bucket 和平台上传 ID |
 
 必须按顺序执行，不要跳过中间版本，也不要修改已经在生产环境执行过的脚本。
 
@@ -41,10 +42,10 @@ mysql -h 127.0.0.1 -u filebridge -p file_bridge \
 将脚本复制到宿主项目自己的迁移目录，例如：
 
 ```text
-src/main/resources/db/migration/file-bridge/
+src/main/resources/db/filebridge/migration/
 ```
 
-然后把该目录加入宿主 Flyway 配置，并确保版本号不会与宿主已有迁移冲突。
+组件 JAR 已将脚本发布到该专用目录。宿主将其加入 Flyway locations 后即可执行，同时避免与默认 `db/migration` 目录中的业务脚本混在一起。
 
 Starter 不引入 Flyway，也不会主动执行迁移。独立 `example` 工程为了方便本地运行，显式引入并启用了 Flyway。
 

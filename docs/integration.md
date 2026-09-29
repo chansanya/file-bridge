@@ -52,6 +52,12 @@ Starter 只提供 Java 服务能力，不包含 Controller、Servlet Filter 或 
 ./mvnw -f example/pom.xml spring-boot:run
 ```
 
+本地启动时显式启用 Demo 身份：
+
+```bash
+./mvnw -f example/pom.xml spring-boot:run -Dspring-boot.run.profiles=demo
+```
+
 启动后访问 <http://localhost:8080/>。控制台支持拖放多文件、小文件直传、大文件分片、秒传探测、断点续传和上传状态控制，具体行为见 [Example 上传控制台](example.md)。
 
 ## 3. 初始化数据库
@@ -70,7 +76,7 @@ Starter 本身：
 - 不主动创建或修改数据库表；
 - 不删除宿主业务数据。
 
-如果宿主已经使用 Flyway，可以将脚本复制到宿主项目自己的迁移目录，由宿主管理版本和发布时间。组件 JAR 内也包含迁移资源；宿主若扫描默认的 `classpath:db/migration`，应确认不会与现有版本号冲突。
+如果宿主已经使用 Flyway，可以将脚本复制到宿主项目自己的迁移目录，由宿主管理版本和发布时间。组件 JAR 内也包含迁移资源；宿主若扫描默认的 `classpath:db/filebridge/migration`，应确认不会与现有版本号冲突。
 
 ## 4. 配置存储实例
 

@@ -21,21 +21,34 @@ public final class JdbcReconciliationRepository implements ReconciliationReposit
       String fingerprint,
       String issueType,
       String storageId,
+      String bucket,
       String objectKey,
+      String providerUploadId,
       String entityId,
       String error,
       Instant nextAttemptAt,
       Instant now) {
     jdbc.update(
         "INSERT INTO fb_reconciliation_issue"
-            + "(fingerprint,issue_type,storage_id,object_key,entity_id,status,attempts,last_error,"
-            + "next_attempt_at,created_at,updated_at) "
-            + "VALUES(:fingerprint,:type,:storage,:objectKey,:entity,'OPEN',0,:error,:next,:now,:now) "
+            + "(fingerprint,issue_type,storage_id,bucket_name,object_key,provider_upload_id,entity_id,"
+            + "status,attempts,last_error,next_attempt_at,created_at,updated_at) "
+            + "VALUES(:fingerprint,:type,:storage,:bucket,:objectKey,:providerUploadId,:entity,"
+            + "'OPEN',0,:error,:next,:now,:now) "
             + "AS incoming ON DUPLICATE KEY UPDATE "
-            + "status=IF(fb_reconciliation_issue.status IN ('RESOLVED','MANUAL_REQUIRED'),'OPEN',fb_reconciliation_issue.status),"
+            + "status=IF(fb_reconciliation_issue.status='RESOLVED','OPEN',fb_reconciliation_issue.status),"
             + "last_error=incoming.last_error,next_attempt_at=incoming.next_attempt_at,"
             + "resolved_at=NULL,updated_at=incoming.updated_at",
-        params(fingerprint, issueType, storageId, objectKey, entityId, error, nextAttemptAt, now));
+        params(
+            fingerprint,
+            issueType,
+            storageId,
+            bucket,
+            objectKey,
+            providerUploadId,
+            entityId,
+            error,
+            nextAttemptAt,
+            now));
     return jdbc
         .query(
             "SELECT * FROM fb_reconciliation_issue WHERE fingerprint=:fingerprint",
@@ -49,7 +62,7 @@ public final class JdbcReconciliationRepository implements ReconciliationReposit
   @Override
   public List<ReconciliationIssue> findDue(Instant now, int limit) {
     return jdbc.query(
-        "SELECT * FROM fb_reconciliation_issue WHERE status IN ('OPEN','RETRY_WAIT') "
+        "SELECT * FROM fb_reconciliation_issue WHERE (status IN ('OPEN','RETRY_WAIT') OR (status='PROCESSING' AND lease_until<:now)) "
             + "AND (next_attempt_at IS NULL OR next_attempt_at<=:now) "
             + "AND (lease_owner IS NULL OR lease_until<:now) ORDER BY updated_at LIMIT "
             + safeLimit(limit),
@@ -62,7 +75,7 @@ public final class JdbcReconciliationRepository implements ReconciliationReposit
     return jdbc.update(
             "UPDATE fb_reconciliation_issue SET status='PROCESSING',lease_owner=:owner,"
                 + "lease_until=:until,attempts=attempts+1,updated_at=:now WHERE id=:id "
-                + "AND status IN ('OPEN','RETRY_WAIT') "
+                + "AND (status IN ('OPEN','RETRY_WAIT') OR (status='PROCESSING' AND lease_until<:now)) "
                 + "AND (lease_owner IS NULL OR lease_until<:now)",
             Map.of("id", id, "owner", owner, "until", ts(until), "now", ts(now)))
         == 1;
@@ -114,7 +127,9 @@ public final class JdbcReconciliationRepository implements ReconciliationReposit
       String fingerprint,
       String type,
       String storage,
+      String bucket,
       String objectKey,
+      String providerUploadId,
       String entity,
       String error,
       Instant next,
@@ -123,7 +138,9 @@ public final class JdbcReconciliationRepository implements ReconciliationReposit
         .addValue("fingerprint", fingerprint)
         .addValue("type", type)
         .addValue("storage", storage)
+        .addValue("bucket", bucket)
         .addValue("objectKey", objectKey)
+        .addValue("providerUploadId", providerUploadId)
         .addValue("entity", entity)
         .addValue("error", abbreviate(error))
         .addValue("next", ts(next))
@@ -155,7 +172,9 @@ public final class JdbcReconciliationRepository implements ReconciliationReposit
               row.getString("fingerprint"),
               row.getString("issue_type"),
               row.getString("storage_id"),
+              row.getString("bucket_name"),
               row.getString("object_key"),
+              row.getString("provider_upload_id"),
               row.getString("entity_id"),
               ReconciliationIssueStatus.valueOf(row.getString("status")),
               row.getInt("attempts"),
