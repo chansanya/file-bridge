@@ -9,7 +9,6 @@ import io.github.chansan.filebridge.storage.local.*;
 import io.github.chansan.filebridge.upload.*;
 import java.time.Duration;
 import java.util.*;
-import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.*;
@@ -21,7 +20,13 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /** FileBridge 核心 Spring Boot 自动配置。 */
-@AutoConfiguration
+@AutoConfiguration(
+    afterName = {
+      "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
+      "org.springframework.boot.jdbc.autoconfigure.JdbcTemplateAutoConfiguration",
+      "org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration",
+      "org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration"
+    })
 @EnableConfigurationProperties(FileBridgeProperties.class)
 @ConditionalOnProperty(prefix = "file-bridge", name = "enabled", matchIfMissing = true)
 public class FileBridgeAutoConfiguration {
@@ -122,26 +127,12 @@ public class FileBridgeAutoConfiguration {
   }
 
   /**
-   * 创建 FileBridge 使用的具名参数 JDBC 模板。
-   *
-   * @param d 应用数据源
-   * @return 具名参数 JDBC 模板
-   */
-  @Bean
-  @ConditionalOnBean(DataSource.class)
-  @ConditionalOnMissingBean
-  NamedParameterJdbcTemplate fileBridgeJdbc(DataSource d) {
-    return new NamedParameterJdbcTemplate(d);
-  }
-
-  /**
    * 创建 JDBC 文件仓储。
    *
    * @param j 具名参数 JDBC 模板
    * @return 文件仓储
    */
   @Bean
-  @ConditionalOnBean(NamedParameterJdbcTemplate.class)
   @ConditionalOnMissingBean
   FileRepository fileRepository(NamedParameterJdbcTemplate j) {
     return new JdbcFileRepository(j);
@@ -154,7 +145,6 @@ public class FileBridgeAutoConfiguration {
    * @return 上传任务仓储
    */
   @Bean
-  @ConditionalOnBean(NamedParameterJdbcTemplate.class)
   @ConditionalOnMissingBean
   UploadRepository uploadRepository(NamedParameterJdbcTemplate j) {
     return new JdbcUploadRepository(j);
@@ -167,14 +157,12 @@ public class FileBridgeAutoConfiguration {
    * @return 幂等记录仓储
    */
   @Bean
-  @ConditionalOnBean(NamedParameterJdbcTemplate.class)
   @ConditionalOnMissingBean
   IdempotencyRepository idempotencyRepository(NamedParameterJdbcTemplate j) {
     return new JdbcIdempotencyRepository(j);
   }
 
   @Bean
-  @ConditionalOnBean(NamedParameterJdbcTemplate.class)
   @ConditionalOnMissingBean
   ReconciliationRepository reconciliationRepository(NamedParameterJdbcTemplate j) {
     return new JdbcReconciliationRepository(j);
@@ -187,7 +175,6 @@ public class FileBridgeAutoConfiguration {
    * @return 事务执行器
    */
   @Bean
-  @ConditionalOnBean(PlatformTransactionManager.class)
   @ConditionalOnMissingBean
   TransactionRunner transactionRunner(PlatformTransactionManager t) {
     return new JdbcTransactionRunner(new TransactionTemplate(t));

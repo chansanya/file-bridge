@@ -46,12 +46,6 @@
       <artifactId>spring-boot-configuration-processor</artifactId>
       <optional>true</optional>
     </dependency>
-    <!-- 可选 Micrometer 指标 API；宿主未提供 MeterRegistry 时自动使用空实现。 -->
-    <dependency>
-      <groupId>io.micrometer</groupId>
-      <artifactId>micrometer-core</artifactId>
-      <optional>true</optional>
-    </dependency>
     <!-- 声明配置和扩展参数校验所需的 Jakarta Validation API。 -->
     <dependency>
       <groupId>jakarta.validation</groupId>
