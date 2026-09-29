@@ -17,6 +17,7 @@
 | 4 | `V4__upload_completion_retry.sql` | 完成任务重试、退避和错误记录 |
 | 5 | `V5__object_unreferenced_time.sql` | 无引用对象保留时间和删除竞态控制 |
 | 6 | `V6__reconciliation_retry_state.sql` | 对账问题指纹、租约、退避和处理结果 |
+| 7 | `V7__object_location_hash.sql` | 使用完整对象路径摘要保证定位唯一性 |
 
 必须按顺序执行，不要跳过中间版本，也不要修改已经在生产环境执行过的脚本。
 
@@ -60,17 +61,17 @@ Starter 不引入 Flyway，也不会主动执行迁移。独立 `example` 工程
 
 ## 索引说明
 
-`fb_storage_object` 的对象定位唯一索引使用前缀长度：
+`V7` 使用完整对象路径的 SHA-256 生成列建立唯一索引：
 
 ```sql
 UNIQUE KEY uk_fb_object_location(
   storage_id,
-  bucket_name(128),
-  object_key(512)
+  bucket_name_normalized,
+  object_key_hash
 )
 ```
 
-这是为了避免 `utf8mb4` 下复合索引超过 MySQL InnoDB 3072 字节限制。业务层仍保存完整的 Bucket 和对象路径。
+这样既避免 `utf8mb4` 长路径索引超过 InnoDB 3072 字节限制，也避免不同长路径拥有相同前 512 个字符时发生前缀唯一索引误冲突。业务层仍保存完整 Bucket 和对象路径。
 
 ## 变更约束
 

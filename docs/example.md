@@ -28,6 +28,7 @@ http://localhost:8080/
 | `static/app.js` | Vue 应用入口、界面状态、拖放交互和图标组件 |
 | `static/useFileBridge.js` | 上传队列、摘要计算、普通上传、分片上传和续传逻辑 |
 | `static/sha256.js` | 浏览器增量 SHA-256 实现和主线程降级方案 |
+| `static/hash-worker.js` | 模块化 Web Worker，复用同一 SHA-256 实现 |
 | `static/vendor/vue.esm-browser.js` | 固定版本的 Vue 3.4.21 浏览器 ESM 文件 |
 
 页面通过 Import Map 加载仓库内的 Vue 文件：
