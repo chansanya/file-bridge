@@ -4,6 +4,7 @@ import io.github.chansan.filebridge.core.error.*;
 import io.github.chansan.filebridge.core.model.*;
 import io.github.chansan.filebridge.core.spi.*;
 import io.minio.*;
+import io.minio.errors.ErrorResponseException;
 import java.io.*;
 import java.net.URI;
 import java.security.*;
@@ -120,7 +121,7 @@ public final class MinioStorageProvider
       return Optional.of(
           new StoredObject(l, s.size(), null, s.contentType(), s.lastModified().toInstant()));
     } catch (Exception e) {
-      if (e.getMessage() != null && e.getMessage().contains("not exist")) return Optional.empty();
+      if (isNotFound(e)) return Optional.empty();
       throw fail("MinIO statObject failed", e);
     }
   }
@@ -341,9 +342,25 @@ public final class MinioStorageProvider
    * @param e 原始异常
    * @return 领域异常
    */
-  private static FileBridgeException fail(String m, Throwable e) {
-    if (e instanceof CompletionException && e.getCause() != null) e = e.getCause();
-    return new FileBridgeException(FileBridgeErrorCode.STORAGE_FAILURE, m, e);
+  private static boolean isNotFound(Throwable error) {
+    Throwable current = unwrap(error);
+    if (!(current instanceof ErrorResponseException response)) return false;
+    String code = response.errorResponse().code();
+    return "NoSuchKey".equals(code) || "NoSuchObject".equals(code) || "NotFound".equals(code);
+  }
+
+  private static Throwable unwrap(Throwable error) {
+    Throwable current = error;
+    while (current instanceof CompletionException && current.getCause() != null) {
+      current = current.getCause();
+    }
+    return current;
+  }
+
+  private static FileBridgeException fail(String message, Throwable error) {
+    Throwable cause = unwrap(error);
+    if (cause instanceof FileBridgeException fileBridgeException) return fileBridgeException;
+    return new FileBridgeException(FileBridgeErrorCode.STORAGE_FAILURE, message, cause);
   }
 
   private static final class CountingInputStream extends FilterInputStream {

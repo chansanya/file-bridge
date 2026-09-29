@@ -23,6 +23,7 @@ public final class DefaultFileService implements FileService {
   private final UploadQuotaPolicy quota;
   private final ObjectKeyGenerator keys;
   private final ContentTypeDetector contentTypes;
+  private final long maximumFileSize;
 
   /**
    * 创建默认文件业务服务。
@@ -37,6 +38,7 @@ public final class DefaultFileService implements FileService {
    * @param quota 上传配额策略
    * @param keys 对象路径生成器
    * @param contentTypes 内容类型检测器
+   * @param maximumFileSize 最大允许字节数
    */
   public DefaultFileService(
       FileRepository files,
@@ -48,7 +50,8 @@ public final class DefaultFileService implements FileService {
       FileAccessPolicy policy,
       UploadQuotaPolicy quota,
       ObjectKeyGenerator keys,
-      ContentTypeDetector contentTypes) {
+      ContentTypeDetector contentTypes,
+      long maximumFileSize) {
     this.files = files;
     this.idempotency = idempotency;
     this.tx = tx;
@@ -59,6 +62,7 @@ public final class DefaultFileService implements FileService {
     this.quota = quota;
     this.keys = keys;
     this.contentTypes = contentTypes;
+    this.maximumFileSize = maximumFileSize;
   }
 
   /**
@@ -92,7 +96,8 @@ public final class DefaultFileService implements FileService {
     StorageProvider storage = storages.require(defaultStorage);
     String key = keys.generate(actor, command.originalName());
     try (PushbackInputStream input =
-        new PushbackInputStream(new BufferedInputStream(source), 8192)) {
+        new PushbackInputStream(
+            new BufferedInputStream(new SizeLimitedInputStream(source, maximumFileSize)), 8192)) {
       // 只读取有限文件头并回推到流中，避免为了类型识别把整个文件读入内存。
       byte[] prefix = input.readNBytes(8192);
       input.unread(prefix);

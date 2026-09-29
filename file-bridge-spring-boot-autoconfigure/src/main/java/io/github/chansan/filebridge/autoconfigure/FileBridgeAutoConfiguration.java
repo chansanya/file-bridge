@@ -8,6 +8,7 @@ import io.github.chansan.filebridge.persistence.jdbc.*;
 import io.github.chansan.filebridge.storage.local.*;
 import io.github.chansan.filebridge.upload.*;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.*;
 import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -200,7 +201,18 @@ public class FileBridgeAutoConfiguration {
       UploadQuotaPolicy q,
       ObjectKeyGenerator k,
       ContentTypeDetector c) {
-    return new DefaultFileService(f, i, t, s, p.getDefaultStorage(), a, policy, q, k, c);
+    return new DefaultFileService(
+        f,
+        i,
+        t,
+        s,
+        p.getDefaultStorage(),
+        a,
+        policy,
+        q,
+        k,
+        c,
+        p.getUpload().getMaxFileSize().toBytes());
   }
 
   /**
@@ -308,12 +320,20 @@ public class FileBridgeAutoConfiguration {
       org.springframework.beans.factory.ObjectProvider<CurrentActorProvider> actors,
       org.springframework.beans.factory.ObjectProvider<FileAccessPolicy> policies) {
     return args -> {
+      require(p.getDefaultStorage(), "default-storage");
+      positive(p.getUpload().getMaxFileSize().toBytes(), "upload.max-file-size");
+      positive(p.getUpload().getPreferredPartSize().toBytes(), "upload.preferred-part-size");
+      positive(p.getUpload().getTaskTtl(), "upload.task-ttl");
+      positive(p.getUpload().getLeaseDuration(), "upload.lease-duration");
+      positive(p.getCleanup().getInterval(), "cleanup.interval");
+      positive(p.getCleanup().getUnreferencedRetention(), "cleanup.unreferenced-retention");
       r.require(p.getDefaultStorage());
       if (files.getIfAvailable() != null
-          && (actors.getIfAvailable() == null || policies.getIfAvailable() == null))
+          && (actors.getIfAvailable() == null || policies.getIfAvailable() == null)) {
         throw new IllegalStateException(
             "FileBridge business services require CurrentActorProvider and FileAccessPolicy; no"
                 + " permissive production default is provided");
+      }
     };
   }
 
@@ -373,6 +393,16 @@ public class FileBridgeAutoConfiguration {
    * @param name 配置名称
    * @return 非空白配置值
    */
+  private static void positive(long value, String name) {
+    if (value <= 0) throw new IllegalStateException("file-bridge." + name + " must be positive");
+  }
+
+  private static void positive(Duration value, String name) {
+    if (value == null || value.isNegative() || value.isZero()) {
+      throw new IllegalStateException("file-bridge." + name + " must be positive");
+    }
+  }
+
   private static String require(String v, String name) {
     if (v == null || v.isBlank()) throw new IllegalStateException("Missing storage " + name);
     return v;

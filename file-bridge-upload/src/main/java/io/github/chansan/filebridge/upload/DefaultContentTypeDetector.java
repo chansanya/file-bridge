@@ -1,7 +1,6 @@
 package io.github.chansan.filebridge.upload;
 
 import io.github.chansan.filebridge.core.spi.ContentTypeDetector;
-import java.util.Locale;
 
 /** 基于有限文件头的轻量内容类型检测器。 */
 public final class DefaultContentTypeDetector implements ContentTypeDetector {
@@ -23,8 +22,6 @@ public final class DefaultContentTypeDetector implements ContentTypeDetector {
       return "application/pdf";
     if (p.length >= 4 && p[0] == 0x50 && p[1] == 0x4b && p[2] == 0x03 && p[3] == 0x04)
       return "application/zip";
-    return declared == null || declared.isBlank()
-        ? "application/octet-stream"
-        : declared.toLowerCase(Locale.ROOT);
+    return "application/octet-stream";
   }
 }

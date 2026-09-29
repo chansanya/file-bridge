@@ -307,10 +307,10 @@ public final class TencentCosStorageProvider
    * @param e 原始异常
    * @return 领域异常
    */
-  private static FileBridgeException fail(String m, Throwable e) {
-    return e instanceof FileBridgeException f
-        ? f
-        : new FileBridgeException(FileBridgeErrorCode.STORAGE_FAILURE, m, e);
+  private static FileBridgeException fail(String message, Throwable error) {
+    return error instanceof FileBridgeException fileBridgeException
+        ? fileBridgeException
+        : new FileBridgeException(FileBridgeErrorCode.STORAGE_FAILURE, message, error);
   }
 
   private static final class Counted extends FilterInputStream {
