@@ -1,13 +1,12 @@
 package io.github.chansan.filebridge.storage.aliyun;
 
 import com.aliyun.oss.OSSClientBuilder;
-import io.github.chansan.filebridge.core.spi.StorageProvider;
-import java.util.Map;
+import io.github.chansan.filebridge.core.spi.*;
+import java.util.*;
 
 /** 根据外部配置创建阿里云 OSS 存储适配器。 */
-public final class AliyunOssStorageFactory {
+public final class AliyunOssStorageFactory implements StorageProviderFactory {
   /** 禁止实例化工具类。 */
-  private AliyunOssStorageFactory() {}
 
   /**
    * 根据配置创建阿里云 OSS 存储适配器。
@@ -16,7 +15,13 @@ public final class AliyunOssStorageFactory {
    * @param c 适配器配置
    * @return 阿里云 OSS 存储适配器
    */
-  public static StorageProvider create(String id, Map<String, String> c) {
+  @Override
+  public Set<String> types() {
+    return Set.of("aliyun", "aliyun-oss");
+  }
+
+  @Override
+  public StorageProvider create(String id, Map<String, String> c) {
     return new AliyunOssStorageProvider(
         id,
         required(c, "bucket"),

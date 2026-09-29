@@ -7,7 +7,6 @@ import io.github.chansan.filebridge.core.spi.*;
 import io.github.chansan.filebridge.persistence.jdbc.*;
 import io.github.chansan.filebridge.storage.local.*;
 import io.github.chansan.filebridge.upload.*;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.*;
 import javax.sql.DataSource;
@@ -34,23 +33,44 @@ public class FileBridgeAutoConfiguration {
    */
   @Bean(name = "fileBridgeStorageProviders")
   @ConditionalOnMissingBean(name = "fileBridgeStorageProviders")
-  List<StorageProvider> fileBridgeStorageProviders(FileBridgeProperties p) {
-    List<StorageProvider> values = new ArrayList<>();
-    p.getStorages()
+  List<StorageProvider> fileBridgeStorageProviders(FileBridgeProperties properties) {
+    Map<String, StorageProviderFactory> factories = new LinkedHashMap<>();
+    ServiceLoader.load(StorageProviderFactory.class, Thread.currentThread().getContextClassLoader())
         .forEach(
-            (id, s) -> {
-              if (!s.isEnabled()) return;
-              String type = require(s.getType(), "type").toLowerCase(Locale.ROOT);
-              if ("local".equals(type)) {
-                values.add(
-                    new LocalStorageProvider(
-                        id,
-                        Path.of(require(s.getRootPath(), "root-path")),
-                        Path.of(require(s.getTempPath(), "temp-path"))));
-                return;
+            factory -> {
+              for (String type : factory.types()) {
+                StorageProviderFactory previous = factories.putIfAbsent(type, factory);
+                if (previous != null) {
+                  throw new IllegalStateException("Duplicate storage provider factory: " + type);
+                }
               }
-              values.add(createOptionalProvider(type, id, s));
             });
+    List<StorageProvider> providers = new ArrayList<>();
+    properties
+        .getStorages()
+        .forEach(
+            (id, storage) -> {
+              if (!storage.isEnabled()) return;
+              String type = require(storage.getType(), "type").toLowerCase(Locale.ROOT);
+              StorageProviderFactory factory = factories.get(type);
+              if (factory == null) {
+                throw new IllegalStateException(
+                    "Storage module is not on the classpath for type: " + type);
+              }
+              providers.add(factory.create(id, storageConfiguration(storage)));
+            });
+    return providers;
+  }
+
+  private static Map<String, String> storageConfiguration(FileBridgeProperties.Storage storage) {
+    Map<String, String> values = new HashMap<>();
+    put(values, "rootPath", storage.getRootPath());
+    put(values, "tempPath", storage.getTempPath());
+    put(values, "endpoint", storage.getEndpoint());
+    put(values, "region", storage.getRegion());
+    put(values, "bucket", storage.getBucket());
+    put(values, "accessKey", storage.getAccessKey());
+    put(values, "secretKey", storage.getSecretKey());
     return values;
   }
 
@@ -352,44 +372,6 @@ public class FileBridgeAutoConfiguration {
                 + " permissive production default is provided");
       }
     };
-  }
-
-  /**
-   * 通过可选存储模块反射创建云存储适配器。
-   *
-   * @param type 存储类型
-   * @param id 存储实例 ID
-   * @param s 存储实例配置
-   * @return 云存储适配器
-   */
-  private static StorageProvider createOptionalProvider(
-      String type, String id, FileBridgeProperties.Storage s) {
-    String className =
-        switch (type) {
-          case "minio" -> "io.github.chansan.filebridge.storage.minio.MinioStorageFactory";
-          case "aliyun", "aliyun-oss" ->
-              "io.github.chansan.filebridge.storage.aliyun.AliyunOssStorageFactory";
-          case "tencent", "tencent-cos" ->
-              "io.github.chansan.filebridge.storage.tencent.TencentCosStorageFactory";
-          default -> throw new IllegalStateException("Unsupported storage type: " + type);
-        };
-    try {
-      Class<?> factory = Class.forName(className);
-      Map<String, String> values = new HashMap<>();
-      put(values, "endpoint", s.getEndpoint());
-      put(values, "region", s.getRegion());
-      put(values, "bucket", s.getBucket());
-      put(values, "accessKey", s.getAccessKey());
-      put(values, "secretKey", s.getSecretKey());
-      return (StorageProvider)
-          factory.getMethod("create", String.class, Map.class).invoke(null, id, values);
-    } catch (ClassNotFoundException e) {
-      throw new IllegalStateException(
-          "Storage module is not on the classpath for type: " + type, e);
-    } catch (ReflectiveOperationException e) {
-      Throwable cause = e.getCause() == null ? e : e.getCause();
-      throw new IllegalStateException("Failed to create storage: " + id, cause);
-    }
   }
 
   /**

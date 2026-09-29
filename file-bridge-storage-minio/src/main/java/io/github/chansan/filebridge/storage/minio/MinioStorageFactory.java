@@ -1,13 +1,12 @@
 package io.github.chansan.filebridge.storage.minio;
 
-import io.github.chansan.filebridge.core.spi.StorageProvider;
+import io.github.chansan.filebridge.core.spi.*;
 import io.minio.MinioAsyncClient;
-import java.util.Map;
+import java.util.*;
 
 /** 根据外部配置创建 MinIO 存储适配器。 */
-public final class MinioStorageFactory {
+public final class MinioStorageFactory implements StorageProviderFactory {
   /** 禁止实例化工具类。 */
-  private MinioStorageFactory() {}
 
   /**
    * 根据配置创建 MinIO 存储适配器。
@@ -16,7 +15,13 @@ public final class MinioStorageFactory {
    * @param c 适配器配置
    * @return MinIO 存储适配器
    */
-  public static StorageProvider create(String id, Map<String, String> c) {
+  @Override
+  public Set<String> types() {
+    return Set.of("minio");
+  }
+
+  @Override
+  public StorageProvider create(String id, Map<String, String> c) {
     return new MinioStorageProvider(
         id,
         required(c, "bucket"),
