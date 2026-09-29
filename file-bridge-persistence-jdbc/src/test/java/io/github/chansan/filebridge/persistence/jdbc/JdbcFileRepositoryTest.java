@@ -19,6 +19,7 @@ class JdbcFileRepositoryTest {
   private JdbcFileRepository repository;
   private JdbcIdempotencyRepository idempotencyRepository;
   private JdbcReconciliationRepository reconciliationRepository;
+  private JdbcUploadRepository uploadRepository;
   private NamedParameterJdbcTemplate jdbc;
 
   @BeforeEach
@@ -36,6 +37,7 @@ class JdbcFileRepositoryTest {
     repository = new JdbcFileRepository(jdbc);
     idempotencyRepository = new JdbcIdempotencyRepository(jdbc);
     reconciliationRepository = new JdbcReconciliationRepository(jdbc);
+    uploadRepository = new JdbcUploadRepository(jdbc);
   }
 
   @Test
@@ -152,6 +154,54 @@ class JdbcFileRepositoryTest {
     assertThat(reconciliationRepository.findDue(now.plusSeconds(31), 10))
         .extracting(ReconciliationIssue::id)
         .contains(issue.id());
+  }
+
+  @Test
+  void coordinatesCompletionRequestLeaseAndRetry() {
+    Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+    UUID uploadId = UUID.randomUUID();
+    uploadRepository.insertTask(
+        new UploadTask(
+            uploadId,
+            "tenant",
+            "owner",
+            "local-main",
+            "object-key",
+            "file.bin",
+            null,
+            null,
+            "application/octet-stream",
+            10,
+            null,
+            5,
+            2,
+            UploadTaskStatus.UPLOADING,
+            "provider-upload",
+            null,
+            now.plusSeconds(3600),
+            null,
+            null,
+            0,
+            now,
+            now));
+
+    assertThat(uploadRepository.requestCompletion(uploadId, now)).isTrue();
+    assertThat(
+            uploadRepository.acquireCompletionLease(uploadId, "worker-a", now.plusSeconds(60), now))
+        .isTrue();
+    assertThat(
+            uploadRepository.acquireCompletionLease(uploadId, "worker-b", now.plusSeconds(60), now))
+        .isFalse();
+    assertThat(
+            uploadRepository.renewCompletionLease(
+                uploadId, "worker-a", now.plusSeconds(120), now.plusSeconds(1)))
+        .isTrue();
+    uploadRepository.retryCompletion(
+        uploadId, "worker-a", "temporary", now.plusSeconds(30), 3, now.plusSeconds(2));
+    assertThat(uploadRepository.findCompletableOrExpiredLeases(now.plusSeconds(10), 10)).isEmpty();
+    assertThat(uploadRepository.findCompletableOrExpiredLeases(now.plusSeconds(31), 10))
+        .extracting(UploadTask::id)
+        .contains(uploadId);
   }
 
   private static StorageObjectRecord object(UUID objectId, Instant now) {
