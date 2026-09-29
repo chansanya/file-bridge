@@ -6,12 +6,14 @@ import java.io.*;
 /** 在下载流关闭时记录实际读取字节数和持续时间。 */
 final class MetricsInputStream extends FilterInputStream {
   private final FileBridgeMetrics metrics;
+  private final long expectedSize;
   private final long started = System.nanoTime();
   private long count;
   private boolean closed;
 
-  MetricsInputStream(InputStream input, FileBridgeMetrics metrics) {
+  MetricsInputStream(InputStream input, long expectedSize, FileBridgeMetrics metrics) {
     super(input);
+    this.expectedSize = expectedSize;
     this.metrics = metrics;
   }
 
@@ -35,7 +37,8 @@ final class MetricsInputStream extends FilterInputStream {
     closed = true;
     try {
       super.close();
-      metrics.record("download", "success", count, System.nanoTime() - started);
+      String outcome = count == expectedSize ? "success" : "incomplete";
+      metrics.record("download", outcome, count, System.nanoTime() - started);
     } catch (IOException error) {
       metrics.record("download", "failure", count, System.nanoTime() - started);
       throw error;

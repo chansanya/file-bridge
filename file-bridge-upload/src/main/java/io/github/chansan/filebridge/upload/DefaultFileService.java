@@ -215,7 +215,9 @@ public final class DefaultFileService implements FileService {
     return new FileResource(
         metadata(r.reference, r.object),
         new MetricsInputStream(
-            storages.require(r.object.location().storageId()).open(r.object.location()), metrics));
+            storages.require(r.object.location().storageId()).open(r.object.location()),
+            r.object.size(),
+            metrics));
   }
 
   /**

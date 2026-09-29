@@ -272,12 +272,15 @@ export function useFileBridge(options = {}) {
   async function processQueue() {
     if (isProcessing.value) return;
     isProcessing.value = true;
-    for (const item of fileQueue.value) {
-      if (item.status === 'IDLE') {
-        await processItem(item);
+    try {
+      while (true) {
+        const next = fileQueue.value.find((item) => item.status === 'IDLE');
+        if (!next) break;
+        await processItem(next);
       }
+    } finally {
+      isProcessing.value = false;
     }
-    isProcessing.value = false;
   }
 
   function addFiles(files, context = {}) {
@@ -344,14 +347,12 @@ export function useFileBridge(options = {}) {
   }
 
   async function toApiError(response, fallbackMessage) {
-    let message = fallbackMessage;
+    const text = await response.text();
+    let message = text || fallbackMessage;
     try {
-      const body = await response.json();
+      const body = JSON.parse(text);
       message = body.message || body.code || message;
-    } catch {
-      const text = await response.text();
-      if (text) message = text;
-    }
+    } catch {}
     return new Error(`${response.status}: ${message}`);
   }
 
