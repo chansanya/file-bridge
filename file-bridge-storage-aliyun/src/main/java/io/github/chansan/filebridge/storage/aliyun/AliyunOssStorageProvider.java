@@ -50,6 +50,11 @@ public final class AliyunOssStorageProvider
     return StorageCapabilities.multipart(100 * 1024L, 5L << 30, 10000, true);
   }
 
+  @Override
+  public ObjectLocation locate(String objectKey) {
+    return new ObjectLocation(id, bucket, objectKey);
+  }
+
   /**
    * {@inheritDoc}
    *

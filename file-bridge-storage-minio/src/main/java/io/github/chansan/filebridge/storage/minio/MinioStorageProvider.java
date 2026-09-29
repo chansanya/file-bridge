@@ -51,6 +51,11 @@ public final class MinioStorageProvider
     return StorageCapabilities.multipart(5L << 20, 5L << 30, 10000, true);
   }
 
+  @Override
+  public ObjectLocation locate(String objectKey) {
+    return new ObjectLocation(id, bucket, objectKey);
+  }
+
   /**
    * {@inheritDoc}
    *

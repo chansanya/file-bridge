@@ -52,9 +52,27 @@ public final class DefaultCleanupService implements CleanupService {
     for (UploadTask t : uploads.findExpiredTasks(Instant.now(), limit)) {
       if (uploads.cancel(t.id(), Instant.now())) {
         StorageProvider p = storages.require(t.storageId());
-        if (p instanceof MultipartStorageProvider m)
-          m.abortMultipart(new MultipartUploadHandle(t.providerUploadId(), t.objectKey()));
-        count++;
+        try {
+          if (p instanceof MultipartStorageProvider multipart) {
+            multipart.abortMultipart(
+                new MultipartUploadHandle(t.providerUploadId(), t.objectKey()));
+          }
+          count++;
+        } catch (RuntimeException error) {
+          ObjectLocation location = p.locate(t.objectKey());
+          Instant failedAt = Instant.now();
+          issues.upsert(
+              "MULTIPART_ABORT_FAILED:" + t.id(),
+              "MULTIPART_ABORT_FAILED",
+              t.storageId(),
+              location.bucket(),
+              t.objectKey(),
+              t.providerUploadId(),
+              t.id().toString(),
+              error.getMessage(),
+              failedAt.plus(Duration.ofMinutes(5)),
+              failedAt);
+        }
       }
     }
     metrics.record("cleanup.uploads", "success", count, 0);

@@ -14,6 +14,7 @@ public final class DefaultUploadService implements UploadService {
   private final UploadRepository uploads;
   private final FileRepository files;
   private final IdempotencyRepository idempotency;
+  private final ReconciliationRepository issues;
   private final TransactionRunner tx;
   private final StorageRegistry storages;
   private final String defaultStorage;
@@ -46,6 +47,7 @@ public final class DefaultUploadService implements UploadService {
       UploadRepository uploads,
       FileRepository files,
       IdempotencyRepository idempotency,
+      ReconciliationRepository issues,
       TransactionRunner tx,
       StorageRegistry storages,
       String defaultStorage,
@@ -59,6 +61,7 @@ public final class DefaultUploadService implements UploadService {
     this.uploads = uploads;
     this.files = files;
     this.idempotency = idempotency;
+    this.issues = issues;
     this.tx = tx;
     this.storages = storages;
     this.defaultStorage = defaultStorage;
@@ -306,8 +309,14 @@ public final class DefaultUploadService implements UploadService {
   public void cancel(UUID id) {
     UploadTask t = requireAccessible(id);
     if (t.status() == UploadTaskStatus.COMPLETED) return;
-    if (uploads.cancel(id, Instant.now()))
-      asMultipart(t).abortMultipart(new MultipartUploadHandle(t.providerUploadId(), t.objectKey()));
+    if (uploads.cancel(id, Instant.now())) {
+      try {
+        asMultipart(t)
+            .abortMultipart(new MultipartUploadHandle(t.providerUploadId(), t.objectKey()));
+      } catch (RuntimeException error) {
+        recordAbortFailure(t, error);
+      }
+    }
   }
 
   /**
@@ -316,6 +325,22 @@ public final class DefaultUploadService implements UploadService {
    * @param id 上传任务 ID
    * @return 当前用户可访问的上传任务
    */
+  private void recordAbortFailure(UploadTask task, RuntimeException error) {
+    Instant now = Instant.now();
+    ObjectLocation location = storages.require(task.storageId()).locate(task.objectKey());
+    issues.upsert(
+        "MULTIPART_ABORT_FAILED:" + task.id(),
+        "MULTIPART_ABORT_FAILED",
+        task.storageId(),
+        location.bucket(),
+        task.objectKey(),
+        task.providerUploadId(),
+        task.id().toString(),
+        error.getMessage(),
+        now.plus(Duration.ofMinutes(5)),
+        now);
+  }
+
   private UploadTask requireAccessible(UUID id) {
     UploadTask t =
         uploads

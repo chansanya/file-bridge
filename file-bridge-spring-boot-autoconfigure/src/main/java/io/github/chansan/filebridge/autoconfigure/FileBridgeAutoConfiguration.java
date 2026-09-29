@@ -220,6 +220,7 @@ public class FileBridgeAutoConfiguration {
   FileService fileService(
       FileRepository f,
       IdempotencyRepository i,
+      ReconciliationRepository r,
       TransactionRunner t,
       StorageRegistry s,
       FileBridgeProperties p,
@@ -232,6 +233,7 @@ public class FileBridgeAutoConfiguration {
     return new DefaultFileService(
         f,
         i,
+        r,
         t,
         s,
         p.getDefaultStorage(),
@@ -273,6 +275,7 @@ public class FileBridgeAutoConfiguration {
       UploadRepository u,
       FileRepository f,
       IdempotencyRepository i,
+      ReconciliationRepository r,
       TransactionRunner t,
       StorageRegistry s,
       FileBridgeProperties p,
@@ -288,6 +291,7 @@ public class FileBridgeAutoConfiguration {
         u,
         f,
         i,
+        r,
         t,
         s,
         p.getDefaultStorage(),

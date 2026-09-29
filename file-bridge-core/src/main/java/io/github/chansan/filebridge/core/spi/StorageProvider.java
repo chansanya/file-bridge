@@ -19,6 +19,14 @@ public interface StorageProvider {
   StorageCapabilities capabilities();
 
   /**
+   * 将当前存储中的对象路径转换为完整定位信息。
+   *
+   * @param objectKey 服务端生成的对象路径
+   * @return 包含存储实例和 Bucket 的定位信息
+   */
+  ObjectLocation locate(String objectKey);
+
+  /**
    * 写入一个物理对象并计算可信摘要。
    *
    * @param request 服务端生成的对象路径、预期大小和内容类型

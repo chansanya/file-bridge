@@ -67,6 +67,11 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     return StorageCapabilities.multipart(1, 5L * 1024 * 1024 * 1024, 10_000, false);
   }
 
+  @Override
+  public ObjectLocation locate(String objectKey) {
+    return new ObjectLocation(storageId, null, objectKey);
+  }
+
   /**
    * {@inheritDoc}
    *

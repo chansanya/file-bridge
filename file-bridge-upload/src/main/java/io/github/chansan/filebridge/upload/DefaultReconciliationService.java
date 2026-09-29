@@ -79,19 +79,25 @@ public final class DefaultReconciliationService implements ReconciliationService
   private void process(ReconciliationIssue issue) {
     Instant now = Instant.now();
     try {
-      UUID objectId = UUID.fromString(issue.entityId());
-      StorageObjectRecord object = files.findObject(objectId).orElse(null);
-      if (object == null) {
-        issues.resolve(issue.id(), workerId, now);
-        return;
-      }
       switch (issue.issueType()) {
         case "PHYSICAL_OBJECT_MISSING" -> {
+          UUID objectId = UUID.fromString(issue.entityId());
+          if (files.findObject(objectId).isEmpty()) {
+            issues.resolve(issue.id(), workerId, now);
+            return;
+          }
           files.markObjectError(objectId, "Physical object is missing", now);
           issues.requireManual(issue.id(), workerId, "Physical object is missing", now);
         }
         case "STORAGE_CHECK_FAILED" -> {
-          if (storages.require(object.location().storageId()).stat(object.location()).isPresent()) {
+          UUID objectId = UUID.fromString(issue.entityId());
+          StorageObjectRecord object = files.findObject(objectId).orElse(null);
+          if (object == null) {
+            issues.resolve(issue.id(), workerId, now);
+          } else if (storages
+              .require(object.location().storageId())
+              .stat(object.location())
+              .isPresent()) {
             issues.resolve(issue.id(), workerId, now);
           } else {
             files.markObjectError(objectId, "Physical object is missing", now);
@@ -99,9 +105,30 @@ public final class DefaultReconciliationService implements ReconciliationService
           }
         }
         case "OBJECT_DELETE_FAILED" -> {
-          storages.require(object.location().storageId()).delete(object.location());
-          files.markObjectDeleted(objectId, now);
+          UUID objectId = UUID.fromString(issue.entityId());
+          StorageObjectRecord object = files.findObject(objectId).orElse(null);
+          if (object == null) {
+            issues.resolve(issue.id(), workerId, now);
+          } else {
+            storages.require(object.location().storageId()).delete(object.location());
+            files.markObjectDeleted(objectId, now);
+            issues.resolve(issue.id(), workerId, now);
+          }
+        }
+        case "UNTRACKED_PHYSICAL_OBJECT" -> {
+          StorageProvider storage = storages.require(issue.storageId());
+          storage.delete(new ObjectLocation(issue.storageId(), issue.bucket(), issue.objectKey()));
           issues.resolve(issue.id(), workerId, now);
+        }
+        case "MULTIPART_ABORT_FAILED" -> {
+          StorageProvider storage = storages.require(issue.storageId());
+          if (!(storage instanceof MultipartStorageProvider multipart)) {
+            issues.requireManual(issue.id(), workerId, "Storage is not multipart capable", now);
+          } else {
+            multipart.abortMultipart(
+                new MultipartUploadHandle(issue.providerUploadId(), issue.objectKey()));
+            issues.resolve(issue.id(), workerId, now);
+          }
         }
         default -> issues.requireManual(issue.id(), workerId, "Unsupported issue type", now);
       }

@@ -15,6 +15,7 @@ import java.util.*;
 public final class DefaultFileService implements FileService {
   private final FileRepository files;
   private final IdempotencyRepository idempotency;
+  private final ReconciliationRepository issues;
   private final TransactionRunner tx;
   private final StorageRegistry storages;
   private final String defaultStorage;
@@ -45,6 +46,7 @@ public final class DefaultFileService implements FileService {
   public DefaultFileService(
       FileRepository files,
       IdempotencyRepository idempotency,
+      ReconciliationRepository issues,
       TransactionRunner tx,
       StorageRegistry storages,
       String defaultStorage,
@@ -57,6 +59,7 @@ public final class DefaultFileService implements FileService {
       FileBridgeMetrics metrics) {
     this.files = files;
     this.idempotency = idempotency;
+    this.issues = issues;
     this.tx = tx;
     this.storages = storages;
     this.defaultStorage = defaultStorage;
@@ -175,6 +178,7 @@ public final class DefaultFileService implements FileService {
           storage.delete(stored.location());
         } catch (RuntimeException cleanup) {
           e.addSuppressed(cleanup);
+          recordUntrackedObject(stored, cleanup);
         }
         if (e instanceof IdempotencyReplayException replay) {
           return get(UUID.fromString(replay.responseValue()));
@@ -249,6 +253,28 @@ public final class DefaultFileService implements FileService {
    * @param id 业务文件 ID
    * @return 业务引用和物理对象
    */
+  private void recordUntrackedObject(StoredObject stored, RuntimeException error) {
+    Instant now = Instant.now();
+    try {
+      issues.upsert(
+          "UNTRACKED_PHYSICAL_OBJECT:"
+              + stored.location().storageId()
+              + ":"
+              + stored.location().objectKey(),
+          "UNTRACKED_PHYSICAL_OBJECT",
+          stored.location().storageId(),
+          stored.location().bucket(),
+          stored.location().objectKey(),
+          null,
+          null,
+          error.getMessage(),
+          now.plus(Duration.ofHours(1)),
+          now);
+    } catch (RuntimeException issueError) {
+      error.addSuppressed(issueError);
+    }
+  }
+
   private Resolved resolve(UUID id) {
     FileReference ref =
         files

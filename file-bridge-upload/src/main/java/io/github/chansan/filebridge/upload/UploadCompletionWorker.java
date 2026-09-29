@@ -117,11 +117,16 @@ public final class UploadCompletionWorker implements AutoCloseable {
                       new UploadedPart(
                           part.partNumber(), part.size(), part.sha256(), part.providerPartTag()))
               .toList();
+      ObjectLocation target = storage.locate(task.objectKey());
       StoredObject stored =
-          multipart.completeMultipart(
-              new MultipartUploadHandle(task.providerUploadId(), task.objectKey()),
-              parts,
-              task.contentType());
+          storage
+              .stat(target)
+              .orElseGet(
+                  () ->
+                      multipart.completeMultipart(
+                          new MultipartUploadHandle(task.providerUploadId(), task.objectKey()),
+                          parts,
+                          task.contentType()));
       requireLease(leaseLost);
       if (!uploads.moveToVerifying(task.id(), workerId, Instant.now())) {
         throw new FileBridgeException(
