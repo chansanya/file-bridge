@@ -18,6 +18,7 @@ class JdbcFileRepositoryTest {
   @Container static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4");
   private JdbcFileRepository repository;
   private JdbcIdempotencyRepository idempotencyRepository;
+  private JdbcReconciliationRepository reconciliationRepository;
   private NamedParameterJdbcTemplate jdbc;
 
   @BeforeEach
@@ -34,6 +35,7 @@ class JdbcFileRepositoryTest {
     jdbc = new NamedParameterJdbcTemplate(ds);
     repository = new JdbcFileRepository(jdbc);
     idempotencyRepository = new JdbcIdempotencyRepository(jdbc);
+    reconciliationRepository = new JdbcReconciliationRepository(jdbc);
   }
 
   @Test
@@ -125,6 +127,31 @@ class JdbcFileRepositoryTest {
 
     assertThatThrownBy(() -> repository.insertReference(reference(objectId, now)))
         .isInstanceOf(io.github.chansan.filebridge.core.error.FileBridgeException.class);
+  }
+
+  @Test
+  void persistsAndRetriesReconciliationIssue() {
+    Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+    ReconciliationIssue issue =
+        reconciliationRepository.upsert(
+            "OBJECT_DELETE_FAILED:1",
+            "OBJECT_DELETE_FAILED",
+            "local-main",
+            "object-key",
+            UUID.randomUUID().toString(),
+            "temporary failure",
+            now,
+            now);
+
+    assertThat(reconciliationRepository.findDue(now.plusSeconds(1), 10))
+        .extracting(ReconciliationIssue::id)
+        .contains(issue.id());
+    assertThat(reconciliationRepository.acquire(issue.id(), "worker", now.plusSeconds(60), now))
+        .isTrue();
+    reconciliationRepository.retry(issue.id(), "worker", "retry", now.plusSeconds(30), 3, now);
+    assertThat(reconciliationRepository.findDue(now.plusSeconds(31), 10))
+        .extracting(ReconciliationIssue::id)
+        .contains(issue.id());
   }
 
   private static StorageObjectRecord object(UUID objectId, Instant now) {

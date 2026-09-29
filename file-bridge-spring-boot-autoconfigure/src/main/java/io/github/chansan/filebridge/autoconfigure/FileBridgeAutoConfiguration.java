@@ -153,6 +153,13 @@ public class FileBridgeAutoConfiguration {
     return new JdbcIdempotencyRepository(j);
   }
 
+  @Bean
+  @ConditionalOnBean(NamedParameterJdbcTemplate.class)
+  @ConditionalOnMissingBean
+  ReconciliationRepository reconciliationRepository(NamedParameterJdbcTemplate j) {
+    return new JdbcReconciliationRepository(j);
+  }
+
   /**
    * 创建基于 Spring 事务管理器的必需事务执行器。
    *
@@ -281,11 +288,20 @@ public class FileBridgeAutoConfiguration {
    * @return 清理服务
    */
   @Bean
-  @ConditionalOnBean({UploadRepository.class, FileRepository.class, StorageRegistry.class})
+  @ConditionalOnBean({
+    UploadRepository.class,
+    FileRepository.class,
+    StorageRegistry.class,
+    ReconciliationRepository.class
+  })
   @ConditionalOnMissingBean
   CleanupService cleanupService(
-      UploadRepository u, FileRepository f, StorageRegistry s, FileBridgeProperties p) {
-    return new DefaultCleanupService(u, f, s, p.getCleanup().getUnreferencedRetention());
+      UploadRepository u,
+      FileRepository f,
+      StorageRegistry s,
+      ReconciliationRepository r,
+      FileBridgeProperties p) {
+    return new DefaultCleanupService(u, f, s, r, p.getCleanup().getUnreferencedRetention());
   }
 
   /**
@@ -296,10 +312,11 @@ public class FileBridgeAutoConfiguration {
    * @return 对账服务
    */
   @Bean
-  @ConditionalOnBean({FileRepository.class, StorageRegistry.class})
+  @ConditionalOnBean({FileRepository.class, ReconciliationRepository.class, StorageRegistry.class})
   @ConditionalOnMissingBean
-  ReconciliationService reconciliationService(FileRepository f, StorageRegistry s) {
-    return new DefaultReconciliationService(f, s);
+  ReconciliationService reconciliationService(
+      FileRepository f, ReconciliationRepository r, StorageRegistry s) {
+    return new DefaultReconciliationService(f, r, s);
   }
 
   /**

@@ -13,6 +13,7 @@ public final class DefaultCleanupService implements CleanupService {
   private final UploadRepository uploads;
   private final FileRepository files;
   private final StorageRegistry storages;
+  private final ReconciliationRepository issues;
   private final Duration retention;
 
   /**
@@ -27,10 +28,12 @@ public final class DefaultCleanupService implements CleanupService {
       UploadRepository uploads,
       FileRepository files,
       StorageRegistry storages,
+      ReconciliationRepository issues,
       Duration retention) {
     this.uploads = uploads;
     this.files = files;
     this.storages = storages;
+    this.issues = issues;
     this.retention = retention;
   }
 
@@ -72,7 +75,16 @@ public final class DefaultCleanupService implements CleanupService {
         count++;
       } catch (RuntimeException e) {
         LOGGER.log(System.Logger.Level.WARNING, "Object cleanup failed: " + o.id(), e);
-        files.markObjectError(o.id(), e.getMessage(), Instant.now());
+        Instant failedAt = Instant.now();
+        issues.upsert(
+            "OBJECT_DELETE_FAILED:" + o.id(),
+            "OBJECT_DELETE_FAILED",
+            o.location().storageId(),
+            o.location().objectKey(),
+            o.id().toString(),
+            e.getMessage(),
+            failedAt.plus(Duration.ofMinutes(5)),
+            failedAt);
       }
     }
     return count;
