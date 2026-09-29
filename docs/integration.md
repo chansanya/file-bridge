@@ -288,4 +288,3 @@ FILE_BRIDGE_MINIO_TEST=true ./mvnw -pl file-bridge-storage-minio -am test
 ```
 
 若当前网络无法访问 `quay.io`，测试会因镜像拉取失败而无法验证；不能把这种情况记录为测试通过。
-

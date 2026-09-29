@@ -227,7 +227,8 @@ public class FileBridgeAutoConfiguration {
       FileAccessPolicy policy,
       UploadQuotaPolicy q,
       ObjectKeyGenerator k,
-      ContentTypeDetector c) {
+      ContentTypeDetector c,
+      FileBridgeMetrics metrics) {
     return new DefaultFileService(
         f,
         i,
@@ -239,7 +240,8 @@ public class FileBridgeAutoConfiguration {
         q,
         k,
         c,
-        p.getUpload().getMaxFileSize().toBytes());
+        p.getUpload().getMaxFileSize().toBytes(),
+        metrics);
   }
 
   /**

@@ -24,6 +24,7 @@ public final class DefaultFileService implements FileService {
   private final ObjectKeyGenerator keys;
   private final ContentTypeDetector contentTypes;
   private final long maximumFileSize;
+  private final FileBridgeMetrics metrics;
 
   /**
    * 创建默认文件业务服务。
@@ -39,6 +40,7 @@ public final class DefaultFileService implements FileService {
    * @param keys 对象路径生成器
    * @param contentTypes 内容类型检测器
    * @param maximumFileSize 最大允许字节数
+   * @param metrics 可观测性端口
    */
   public DefaultFileService(
       FileRepository files,
@@ -51,7 +53,8 @@ public final class DefaultFileService implements FileService {
       UploadQuotaPolicy quota,
       ObjectKeyGenerator keys,
       ContentTypeDetector contentTypes,
-      long maximumFileSize) {
+      long maximumFileSize,
+      FileBridgeMetrics metrics) {
     this.files = files;
     this.idempotency = idempotency;
     this.tx = tx;
@@ -63,6 +66,7 @@ public final class DefaultFileService implements FileService {
     this.keys = keys;
     this.contentTypes = contentTypes;
     this.maximumFileSize = maximumFileSize;
+    this.metrics = metrics;
   }
 
   /**
@@ -74,6 +78,18 @@ public final class DefaultFileService implements FileService {
    */
   @Override
   public FileMetadata upload(UploadFileCommand command, InputStream source) {
+    long started = System.nanoTime();
+    try {
+      FileMetadata result = uploadInternal(command, source);
+      metrics.record("upload", "success", result.size(), System.nanoTime() - started);
+      return result;
+    } catch (RuntimeException error) {
+      metrics.record("upload", "failure", 0, System.nanoTime() - started);
+      throw error;
+    }
+  }
+
+  private FileMetadata uploadInternal(UploadFileCommand command, InputStream source) {
     Objects.requireNonNull(command);
     Objects.requireNonNull(source);
     // 身份必须来自宿主可信上下文，不能使用请求中伪造的用户字段。
@@ -194,7 +210,8 @@ public final class DefaultFileService implements FileService {
     Resolved r = resolve(fileId);
     return new FileResource(
         metadata(r.reference, r.object),
-        storages.require(r.object.location().storageId()).open(r.object.location()));
+        new MetricsInputStream(
+            storages.require(r.object.location().storageId()).open(r.object.location()), metrics));
   }
 
   /**

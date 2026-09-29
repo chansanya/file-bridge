@@ -293,3 +293,14 @@ secret-key: ${STORAGE_SECRET_KEY}
 | 缺少 `CurrentActorProvider` | 启用了 JDBC 业务服务但未提供可信身份 | 注册身份 Bean |
 | 缺少 `FileAccessPolicy` | 未提供授权策略 | 注册访问策略 Bean |
 | 本地目录初始化失败 | 路径无权限或非法 | 检查目录权限和挂载配置 |
+## 14. Micrometer 指标
+
+宿主提供 `MeterRegistry`（通常通过 Spring Boot Actuator）时，FileBridge 自动注册：
+
+| 指标 | 说明 |
+| --- | --- |
+| `filebridge.operations` | 按 operation/outcome 统计操作次数 |
+| `filebridge.amount` | 上传、下载字节数或后台处理数量 |
+| `filebridge.duration` | 上传、下载和完成任务耗时 |
+
+当前 operation 包括 `upload`、`download`、`completion`、`cleanup.uploads`、`cleanup.objects` 和 `reconciliation`。未提供 Micrometer 时使用空实现，不增加强制运行时依赖。
