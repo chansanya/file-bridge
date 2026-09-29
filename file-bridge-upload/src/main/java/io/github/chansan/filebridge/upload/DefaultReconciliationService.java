@@ -8,6 +8,8 @@ import java.time.Instant;
 
 /** 数据库与物理存储基础对账服务。 */
 public final class DefaultReconciliationService implements ReconciliationService {
+  private static final System.Logger LOGGER =
+      System.getLogger(DefaultReconciliationService.class.getName());
   private final FileRepository files;
   private final StorageRegistry storages;
 
@@ -38,6 +40,7 @@ public final class DefaultReconciliationService implements ReconciliationService
           issues++;
         }
       } catch (RuntimeException e) {
+        LOGGER.log(System.Logger.Level.WARNING, "Object reconciliation failed: " + o.id(), e);
         issues++;
       }
     }

@@ -8,6 +8,8 @@ import java.time.*;
 
 /** 过期任务和无引用对象清理服务。 */
 public final class DefaultCleanupService implements CleanupService {
+  private static final System.Logger LOGGER =
+      System.getLogger(DefaultCleanupService.class.getName());
   private final UploadRepository uploads;
   private final FileRepository files;
   private final StorageRegistry storages;
@@ -69,6 +71,7 @@ public final class DefaultCleanupService implements CleanupService {
         files.markObjectDeleted(o.id(), Instant.now());
         count++;
       } catch (RuntimeException e) {
+        LOGGER.log(System.Logger.Level.WARNING, "Object cleanup failed: " + o.id(), e);
         files.markObjectError(o.id(), e.getMessage(), Instant.now());
       }
     }

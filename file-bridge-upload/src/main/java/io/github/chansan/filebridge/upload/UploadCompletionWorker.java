@@ -13,6 +13,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /** 通过数据库租约协调的上传完成工作器。 */
 public final class UploadCompletionWorker implements AutoCloseable {
+  private static final System.Logger LOGGER =
+      System.getLogger(UploadCompletionWorker.class.getName());
   private final UploadRepository uploads;
   private final FileRepository files;
   private final StorageRegistry storages;
@@ -169,6 +171,7 @@ public final class UploadCompletionWorker implements AutoCloseable {
           });
       return true;
     } catch (RuntimeException error) {
+      LOGGER.log(System.Logger.Level.WARNING, "Upload completion failed: " + task.id(), error);
       Instant failedAt = Instant.now();
       String message =
           error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
