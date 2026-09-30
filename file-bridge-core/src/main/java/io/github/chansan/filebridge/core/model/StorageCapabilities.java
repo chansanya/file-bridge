@@ -9,12 +9,100 @@ package io.github.chansan.filebridge.core.model;
  * @param maximumPartSize 最大分片字节数
  * @param maximumParts 最大分片数量
  */
-public record StorageCapabilities(
-    boolean multipart,
-    boolean signedUrl,
-    long minimumPartSize,
-    long maximumPartSize,
-    int maximumParts) {
+public final class StorageCapabilities {
+  private final boolean multipart;
+  private final boolean signedUrl;
+  private final long minimumPartSize;
+  private final long maximumPartSize;
+  private final int maximumParts;
+
+  public StorageCapabilities(
+      boolean multipart,
+      boolean signedUrl,
+      long minimumPartSize,
+      long maximumPartSize,
+      int maximumParts) {
+    this.multipart = multipart;
+    this.signedUrl = signedUrl;
+    this.minimumPartSize = minimumPartSize;
+    this.maximumPartSize = maximumPartSize;
+    this.maximumParts = maximumParts;
+  }
+
+  public boolean multipart() {
+    return multipart;
+  }
+
+  public boolean signedUrl() {
+    return signedUrl;
+  }
+
+  public long minimumPartSize() {
+    return minimumPartSize;
+  }
+
+  public long maximumPartSize() {
+    return maximumPartSize;
+  }
+
+  public int maximumParts() {
+    return maximumParts;
+  }
+
+  public boolean isMultipart() {
+    return multipart;
+  }
+
+  public boolean isSignedUrl() {
+    return signedUrl;
+  }
+
+  public long getMinimumPartSize() {
+    return minimumPartSize;
+  }
+
+  public long getMaximumPartSize() {
+    return maximumPartSize;
+  }
+
+  public int getMaximumParts() {
+    return maximumParts;
+  }
+
+  @Override
+  public boolean equals(Object value) {
+    if (this == value) return true;
+    if (!(value instanceof StorageCapabilities)) return false;
+    StorageCapabilities other = (StorageCapabilities) value;
+    return multipart == other.multipart
+        && signedUrl == other.signedUrl
+        && minimumPartSize == other.minimumPartSize
+        && maximumPartSize == other.maximumPartSize
+        && maximumParts == other.maximumParts;
+  }
+
+  @Override
+  public int hashCode() {
+    return java.util.Objects.hash(
+        multipart, signedUrl, minimumPartSize, maximumPartSize, maximumParts);
+  }
+
+  @Override
+  public String toString() {
+    return "StorageCapabilities{"
+        + "multipart="
+        + multipart
+        + ", signedUrl="
+        + signedUrl
+        + ", minimumPartSize="
+        + minimumPartSize
+        + ", maximumPartSize="
+        + maximumPartSize
+        + ", maximumParts="
+        + maximumParts
+        + "}";
+  }
+
   /**
    * @return 不支持分片和临时地址的基础能力
    */

@@ -4,11 +4,11 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.github.chansan</groupId>
   <artifactId>file-bridge-parent</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0-jdk8-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>FileBridge</name>
   <description>Spring Boot 可集成的通用文件服务组件</description>
-  <url>https://github.com/chansan/file-bridge</url>
+  <url>https://github.com/chansanya/file-bridge</url>
   <licenses>
     <license>
       <name>MIT License</name>
@@ -30,18 +30,14 @@
   </modules>
 
   <properties>
-    <java.version>17</java.version>
+    <java.version>8</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-    <spring-boot.version>4.1.1</spring-boot.version>
+    <spring-boot.version>2.7.18</spring-boot.version>
     <minio.version>9.0.3</minio.version>
     <aliyun-oss.version>3.18.5</aliyun-oss.version>
     <tencent-cos.version>5.6.279</tencent-cos.version>
     <httpclient4.version>4.5.14</httpclient4.version>
-    <maven.compiler.release>${java.version}</maven.compiler.release>
-    <spotless.version>3.10.3</spotless.version>
-    <sortpom.version>4.0.0</sortpom.version>
-    <google-java-format.version>1.25.2</google-java-format.version>
   </properties>
 
   <dependencyManagement>
@@ -84,14 +80,15 @@
   <build>
     <pluginManagement>
       <plugins>
-        <!-- 统一 Java 编译插件版本，并固定 Java 17 字节码与参数名保留策略。 -->
+        <!-- 统一 Java 编译插件版本，并固定 Java 8 字节码与参数名保留策略。 -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.14.1</version>
+          <version>3.11.0</version>
           <configuration>
-            <!-- 同时约束源码 API 和生成字节码为 Java 17，避免只设置 source/target 的 API 漏洞。 -->
-            <release>${java.version}</release>
+            <!-- 生成 Java 8 字节码，并只使用 Java 8 语言级别。 -->
+            <source>${java.version}</source>
+            <target>${java.version}</target>
             <!-- 将方法参数名写入字节码，便于 Spring 反射绑定和诊断。 -->
             <parameters>true</parameters>
           </configuration>
@@ -114,18 +111,6 @@
           <artifactId>maven-enforcer-plugin</artifactId>
           <version>3.6.2</version>
         </plugin>
-        <!-- 使用 Google Java Format 检查 Java 源码格式。 -->
-        <plugin>
-          <groupId>com.diffplug.spotless</groupId>
-          <artifactId>spotless-maven-plugin</artifactId>
-          <version>${spotless.version}</version>
-        </plugin>
-        <!-- 按 Maven 推荐顺序格式化并校验所有 pom.xml。 -->
-        <plugin>
-          <groupId>com.github.ekryd.sortpom</groupId>
-          <artifactId>sortpom-maven-plugin</artifactId>
-          <version>${sortpom.version}</version>
-        </plugin>
       </plugins>
     </pluginManagement>
     <plugins>
@@ -147,80 +132,18 @@
               <rules>
                 <!-- 校验执行 Maven 的 JDK 版本。 -->
                 <requireJavaVersion>
-                  <!-- [17,) 表示 Java 版本必须大于或等于 17。 -->
-                  <version>[17,)</version>
+                  <!-- [1.8,) 表示 Java 版本必须大于或等于 8。 -->
+                  <version>[1.8,)</version>
                 </requireJavaVersion>
                 <!-- 校验 Maven Wrapper 或本机 Maven 版本。 -->
                 <requireMavenVersion>
-                  <!-- [3.9.0,) 表示 Maven 版本必须大于或等于 3.9.0。 -->
-                  <version>[3.9.0,)</version>
+                  <!-- [3.6.3,) 表示 Maven 版本必须大于或等于 3.6.3。 -->
+                  <version>[3.6.3,)</version>
                 </requireMavenVersion>
                 <!-- 要求同一依赖只能解析为一个版本，避免运行期类冲突。 -->
                 <dependencyConvergence/>
               </rules>
             </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <!-- 校验 POM 的元素顺序、缩进、空元素和空行风格。 -->
-      <plugin>
-        <groupId>com.github.ekryd.sortpom</groupId>
-        <artifactId>sortpom-maven-plugin</artifactId>
-        <configuration>
-          <!-- 格式化时不生成 pom.xml.bak 备份文件，避免污染仓库。 -->
-          <createBackupFile>false</createBackupFile>
-          <!-- 无内容元素使用 <tag/>，不展开为 <tag></tag>。 -->
-          <expandEmptyElements>false</expandEmptyElements>
-          <!-- 仅对根元素的 schemaLocation 属性进行标准换行缩进。 -->
-          <indentAttribute>schemaLocation</indentAttribute>
-          <!-- 最多保留一行有意义的空行，便于按区块阅读。 -->
-          <keepBlankLines>true</keepBlankLines>
-          <!-- POM 不符合规范时立即终止构建，不自动修改文件。 -->
-          <verifyFail>stop</verifyFail>
-          <!-- strict 同时检查 XML 元素顺序和空白格式。 -->
-          <verifyFailOn>strict</verifyFailOn>
-        </configuration>
-        <executions>
-          <execution>
-            <id>sort-pom-check</id>
-            <goals>
-              <!-- verify 只检查格式；需要自动整理时手工执行 sortpom:sort。 -->
-              <goal>verify</goal>
-            </goals>
-            <!-- validate 阶段尽早发现 POM 格式问题。 -->
-            <phase>validate</phase>
-          </execution>
-        </executions>
-      </plugin>
-      <!-- 对所有 Java 源码执行可重复的格式校验。 -->
-      <plugin>
-        <groupId>com.diffplug.spotless</groupId>
-        <artifactId>spotless-maven-plugin</artifactId>
-        <configuration>
-          <!-- 只处理 Java 源文件，不改动资源文件和生成文件。 -->
-          <java>
-            <!-- 选择 Google Java Format 作为确定性格式化引擎。 -->
-            <googleJavaFormat>
-              <!-- 固定格式化器版本，避免不同开发机产生不同结果。 -->
-              <version>${google-java-format.version}</version>
-            </googleJavaFormat>
-            <!-- 删除未使用 import。 -->
-            <removeUnusedImports/>
-            <!-- 删除每行末尾多余空白。 -->
-            <trimTrailingWhitespace/>
-            <!-- 保证源码文件以换行结束。 -->
-            <endWithNewline/>
-          </java>
-        </configuration>
-        <executions>
-          <execution>
-            <id>spotless-check</id>
-            <goals>
-              <!-- check 只校验；需要自动格式化时执行 spotless:apply。 -->
-              <goal>check</goal>
-            </goals>
-            <!-- validate 阶段在编译前拦截格式问题。 -->
-            <phase>validate</phase>
           </execution>
         </executions>
       </plugin>

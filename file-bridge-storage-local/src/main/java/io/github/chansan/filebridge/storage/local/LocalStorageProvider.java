@@ -15,8 +15,9 @@ import java.util.stream.Stream;
 /** 支持流式读写和分片合并的本地文件系统适配器。 */
 public final class LocalStorageProvider implements MultipartStorageProvider {
   private static final int BUFFER_SIZE = 64 * 1024;
-  private static final System.Logger LOGGER =
-      System.getLogger(LocalStorageProvider.class.getName());
+  private static final io.github.chansan.filebridge.core.util.BridgeLog.Logger LOGGER =
+      io.github.chansan.filebridge.core.util.BridgeLog.getLogger(
+          LocalStorageProvider.class.getName());
   private final String storageId;
   private final Path root;
   private final Path temporaryRoot;
@@ -241,13 +242,13 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
   public List<UploadedPart> listParts(MultipartUploadHandle handle) {
     requireHandle(handle);
     Path parts = multipartDirectory(handle.providerUploadId()).resolve("parts");
-    if (!Files.isDirectory(parts)) return List.of();
+    if (!Files.isDirectory(parts)) return java.util.Collections.<UploadedPart>emptyList();
     try (Stream<Path> stream = Files.list(parts)) {
       return stream
           .filter(p -> p.getFileName().toString().endsWith(".properties"))
           .map(p -> readPartMetadata(parts, p))
           .sorted(Comparator.comparingInt(UploadedPart::partNumber))
-          .toList();
+          .collect(java.util.stream.Collectors.toList());
     } catch (IOException e) {
       throw storageFailure("Failed to list local parts", e);
     }
@@ -268,7 +269,9 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     if (expectedParts == null || expectedParts.isEmpty()) throw invalidPart("No parts supplied");
     List<UploadedPart> actual = listParts(handle);
     if (!actual.equals(
-        expectedParts.stream().sorted(Comparator.comparingInt(UploadedPart::partNumber)).toList()))
+        expectedParts.stream()
+            .sorted(Comparator.comparingInt(UploadedPart::partNumber))
+            .collect(java.util.stream.Collectors.toList())))
       throw invalidPart("Stored parts do not match completion request");
     Path target = resolve(root, handle.objectKey());
     Path temp = multipartDirectory(handle.providerUploadId()).resolve("merged.tmp");
@@ -306,14 +309,16 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
           new StoredObject(
               new ObjectLocation(storageId, null, handle.objectKey()),
               total,
-              HexFormat.of().formatHex(digest.digest()),
+              io.github.chansan.filebridge.core.util.HexUtils.toHex(digest.digest()),
               contentType,
               Instant.now());
       try {
         deleteTree(multipartDirectory(handle.providerUploadId()));
       } catch (FileBridgeException cleanupError) {
         LOGGER.log(
-            System.Logger.Level.WARNING, "Unable to clean completed multipart data", cleanupError);
+            io.github.chansan.filebridge.core.util.BridgeLog.Level.WARNING,
+            "Unable to clean completed multipart data",
+            cleanupError);
       }
       return result;
     } catch (IOException e) {
@@ -393,7 +398,8 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
         total += read;
       }
     }
-    return new DigestResult(total, HexFormat.of().formatHex(digest.digest()));
+    return new DigestResult(
+        total, io.github.chansan.filebridge.core.util.HexUtils.toHex(digest.digest()));
   }
 
   private static void rejectSymbolicLinks(Path base, Path target) {
@@ -449,7 +455,7 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
    * @return 仍位于根路径内的目标路径
    */
   private static Path resolve(Path base, String key) {
-    if (key == null || key.isBlank() || key.indexOf('\0') >= 0)
+    if (key == null || key.trim().isEmpty() || key.indexOf('\0') >= 0)
       throw new IllegalArgumentException("invalid object key");
     Path p = base.resolve(key).normalize();
     // 归一化后再次校验根路径，阻断 ../ 路径穿越。
@@ -491,7 +497,8 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
    * @return 非空白的文本值
    */
   private static String requireText(String v, String n) {
-    if (v == null || v.isBlank()) throw new IllegalArgumentException(n + " must not be blank");
+    if (v == null || v.trim().isEmpty())
+      throw new IllegalArgumentException(n + " must not be blank");
     return v;
   }
 
@@ -527,7 +534,8 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
     if (expected != null && total != expected)
       throw new FileBridgeException(
           FileBridgeErrorCode.INVALID_REQUEST, "Received size does not match declared size");
-    return new DigestResult(total, HexFormat.of().formatHex(digest.digest()));
+    return new DigestResult(
+        total, io.github.chansan.filebridge.core.util.HexUtils.toHex(digest.digest()));
   }
 
   /**
@@ -611,5 +619,21 @@ public final class LocalStorageProvider implements MultipartStorageProvider {
    * @param size 实际写入字节数
    * @param sha256 实际内容 SHA-256
    */
-  private record DigestResult(long size, String sha256) {}
+  private static final class DigestResult {
+    private final long size;
+    private final String sha256;
+
+    private DigestResult(long size, String sha256) {
+      this.size = size;
+      this.sha256 = sha256;
+    }
+
+    private long size() {
+      return size;
+    }
+
+    private String sha256() {
+      return sha256;
+    }
+  }
 }

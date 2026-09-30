@@ -63,6 +63,7 @@ markdown_extensions:
 nav:
   - 首页: index.md
   - 快速开始: integration.md
+  - JDK 8 兼容: jdk8.md
   - REST API: api.md
   - 配置参考: configuration.md
   - 架构说明: architecture.md

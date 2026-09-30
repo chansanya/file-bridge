@@ -53,7 +53,8 @@ public final class DefaultStorageRegistry implements StorageRegistry, AutoClosea
   public void close() throws Exception {
     Exception failure = null;
     for (StorageProvider provider : providers.values()) {
-      if (provider instanceof AutoCloseable closeable) {
+      if (provider instanceof AutoCloseable) {
+        AutoCloseable closeable = (AutoCloseable) provider;
         try {
           closeable.close();
         } catch (Exception error) {

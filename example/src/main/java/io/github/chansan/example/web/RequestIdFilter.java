@@ -1,9 +1,9 @@
 package io.github.chansan.example.web;
 
-import jakarta.servlet.*;
-import jakarta.servlet.http.*;
 import java.io.IOException;
 import java.util.UUID;
+import javax.servlet.*;
+import javax.servlet.http.*;
 import org.slf4j.MDC;
 
 /** 维护请求追踪 ID 并写入响应头和 MDC。 */

@@ -59,10 +59,10 @@ public final class JdbcFileRepository implements FileRepository {
   public FileReference insertReference(FileReference reference) {
     int inserted =
         jdbc.update(
-            "INSERT INTO fb_file_reference"
-                + "(id,object_id,tenant_id,owner_id,original_name,business_type,business_id,status,created_at,deleted_at) "
-                + "SELECT :id,:oid,:tenant,:owner,:name,:bt,:bid,:status,:created,:deleted "
-                + "FROM fb_storage_object WHERE id=:oid AND status='AVAILABLE'",
+            "INSERT INTO"
+                + " fb_file_reference(id,object_id,tenant_id,owner_id,original_name,business_type,business_id,status,created_at,deleted_at)"
+                + " SELECT :id,:oid,:tenant,:owner,:name,:bt,:bid,:status,:created,:deleted FROM"
+                + " fb_storage_object WHERE id=:oid AND status='AVAILABLE'",
             new MapSqlParameterSource()
                 .addValue("id", s(reference.id()))
                 .addValue("oid", s(reference.objectId()))
@@ -81,7 +81,7 @@ public final class JdbcFileRepository implements FileRepository {
     jdbc.update(
         "UPDATE fb_storage_object SET unreferenced_at=NULL,delete_after=NULL,updated_at=:now "
             + "WHERE id=:id AND status='AVAILABLE'",
-        Map.of("id", s(reference.objectId()), "now", ts(reference.createdAt())));
+        JdbcParameters.of("id", s(reference.objectId()), "now", ts(reference.createdAt())));
     return reference;
   }
 
@@ -127,7 +127,7 @@ public final class JdbcFileRepository implements FileRepository {
   public Optional<FileReference> findReusable(
       String tenant, String owner, long size, String sha, DeduplicationScope scope) {
     String actor = scope == DeduplicationScope.USER ? " AND r.owner_id=:owner" : "";
-    var p =
+    MapSqlParameterSource p =
         new MapSqlParameterSource()
             .addValue("tenant", tenant)
             .addValue("owner", owner)
@@ -156,7 +156,7 @@ public final class JdbcFileRepository implements FileRepository {
         jdbc.update(
             "UPDATE fb_file_reference SET status='DELETED',deleted_at=:at "
                 + "WHERE id=:id AND status='ACTIVE'",
-            Map.of("id", s(id), "at", ts(at)));
+            JdbcParameters.of("id", s(id), "at", ts(at)));
     if (updated != 1) return false;
     jdbc.update(
         "UPDATE fb_storage_object o JOIN fb_file_reference r ON r.object_id=o.id "
@@ -164,7 +164,7 @@ public final class JdbcFileRepository implements FileRepository {
             + "WHERE r.id=:id AND o.status='AVAILABLE' "
             + "AND NOT EXISTS(SELECT 1 FROM fb_file_reference active "
             + "WHERE active.object_id=o.id AND active.status='ACTIVE')",
-        Map.of("id", s(id), "at", ts(at)));
+        JdbcParameters.of("id", s(id), "at", ts(at)));
     return true;
   }
 
@@ -179,7 +179,7 @@ public final class JdbcFileRepository implements FileRepository {
     Long v =
         jdbc.queryForObject(
             "SELECT COUNT(*) FROM fb_file_reference WHERE object_id=:id AND status='ACTIVE'",
-            Map.of("id", s(objectId)),
+            JdbcParameters.of("id", s(objectId)),
             Long.class);
     return v == null ? 0 : v;
   }
@@ -198,7 +198,7 @@ public final class JdbcFileRepository implements FileRepository {
                 + " WHERE id=:id AND status='AVAILABLE' AND NOT EXISTS(SELECT 1 FROM"
                 + " fb_file_reference r WHERE r.object_id=fb_storage_object.id AND"
                 + " r.status='ACTIVE')",
-            Map.of("id", s(id), "now", ts(now)))
+            JdbcParameters.of("id", s(id), "now", ts(now)))
         == 1;
   }
 
@@ -213,7 +213,7 @@ public final class JdbcFileRepository implements FileRepository {
     jdbc.update(
         "UPDATE fb_storage_object SET status='DELETED',updated_at=:now,version=version+1 WHERE"
             + " id=:id AND status='DELETE_PENDING'",
-        Map.of("id", s(id), "now", ts(now)));
+        JdbcParameters.of("id", s(id), "now", ts(now)));
   }
 
   /**
@@ -226,11 +226,12 @@ public final class JdbcFileRepository implements FileRepository {
   @Override
   public List<StorageObjectRecord> findUnreferencedAvailable(Instant olderThan, int limit) {
     return jdbc.query(
-        "SELECT o.* FROM fb_storage_object o WHERE o.status='AVAILABLE' AND o.unreferenced_at IS NOT NULL AND o.unreferenced_at<:older AND"
-            + " NOT EXISTS(SELECT 1 FROM fb_file_reference r WHERE r.object_id=o.id AND"
-            + " r.status='ACTIVE') ORDER BY o.created_at LIMIT "
+        "SELECT o.* FROM fb_storage_object o WHERE o.status='AVAILABLE' AND o.unreferenced_at IS"
+            + " NOT NULL AND o.unreferenced_at<:older AND NOT EXISTS(SELECT 1 FROM"
+            + " fb_file_reference r WHERE r.object_id=o.id AND r.status='ACTIVE') ORDER BY"
+            + " o.created_at LIMIT "
             + safeLimit(limit),
-        Map.of("older", ts(olderThan)),
+        JdbcParameters.of("older", ts(olderThan)),
         JdbcFileRepository::obj);
   }
 
@@ -246,7 +247,7 @@ public final class JdbcFileRepository implements FileRepository {
     return jdbc.query(
         "SELECT * FROM fb_storage_object WHERE status=:status ORDER BY updated_at LIMIT "
             + safeLimit(limit),
-        Map.of("status", status.name()),
+        JdbcParameters.of("status", status.name()),
         JdbcFileRepository::obj);
   }
 
@@ -261,10 +262,11 @@ public final class JdbcFileRepository implements FileRepository {
   public long countReferences(String tenantId, String ownerId, String nameQuery) {
     StringBuilder sql =
         new StringBuilder(
-            "SELECT COUNT(*) FROM fb_file_reference WHERE tenant_id=:tenant AND owner_id=:owner AND status='ACTIVE'");
+            "SELECT COUNT(*) FROM fb_file_reference WHERE tenant_id=:tenant AND owner_id=:owner AND"
+                + " status='ACTIVE'");
     MapSqlParameterSource params =
         new MapSqlParameterSource().addValue("tenant", tenantId).addValue("owner", ownerId);
-    if (nameQuery != null && !nameQuery.isBlank()) {
+    if (nameQuery != null && !nameQuery.trim().isEmpty()) {
       sql.append(" AND original_name LIKE :name");
       params.addValue("name", "%" + nameQuery.trim() + "%");
     }
@@ -277,14 +279,15 @@ public final class JdbcFileRepository implements FileRepository {
       String tenantId, String ownerId, String nameQuery, int offset, int limit) {
     StringBuilder sql =
         new StringBuilder(
-            "SELECT * FROM fb_file_reference WHERE tenant_id=:tenant AND owner_id=:owner AND status='ACTIVE'");
+            "SELECT * FROM fb_file_reference WHERE tenant_id=:tenant AND owner_id=:owner AND"
+                + " status='ACTIVE'");
     MapSqlParameterSource params =
         new MapSqlParameterSource()
             .addValue("tenant", tenantId)
             .addValue("owner", ownerId)
             .addValue("offset", Math.max(0, offset))
             .addValue("limit", Math.max(1, limit));
-    if (nameQuery != null && !nameQuery.isBlank()) {
+    if (nameQuery != null && !nameQuery.trim().isEmpty()) {
       sql.append(" AND original_name LIKE :name");
       params.addValue("name", "%" + nameQuery.trim() + "%");
     }

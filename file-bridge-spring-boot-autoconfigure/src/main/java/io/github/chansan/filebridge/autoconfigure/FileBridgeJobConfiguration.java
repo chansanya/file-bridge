@@ -5,13 +5,15 @@ import io.github.chansan.filebridge.core.service.*;
 import io.github.chansan.filebridge.core.spi.*;
 import io.github.chansan.filebridge.upload.UploadCompletionWorker;
 import java.util.UUID;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.*;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.*;
 
 /** 上传完成、清理和对账任务自动配置。 */
-@AutoConfiguration(after = FileBridgeAutoConfiguration.class)
+@Configuration(proxyBeanMethods = false)
+@AutoConfigureAfter(FileBridgeAutoConfiguration.class)
 @EnableScheduling
 @ConditionalOnProperty(prefix = "file-bridge", name = "enabled", matchIfMissing = true)
 public class FileBridgeJobConfiguration {

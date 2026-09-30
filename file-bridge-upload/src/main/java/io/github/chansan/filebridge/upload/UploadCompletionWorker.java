@@ -13,8 +13,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /** 通过数据库租约协调的上传完成工作器。 */
 public final class UploadCompletionWorker implements AutoCloseable {
-  private static final System.Logger LOGGER =
-      System.getLogger(UploadCompletionWorker.class.getName());
+  private static final io.github.chansan.filebridge.core.util.BridgeLog.Logger LOGGER =
+      io.github.chansan.filebridge.core.util.BridgeLog.getLogger(
+          UploadCompletionWorker.class.getName());
   private final UploadRepository uploads;
   private final FileRepository files;
   private final StorageRegistry storages;
@@ -86,9 +87,10 @@ public final class UploadCompletionWorker implements AutoCloseable {
       return false;
     }
 
-    UploadTask task = uploads.findTask(snapshot.id()).orElseThrow();
+    UploadTask task =
+        uploads.findTask(snapshot.id()).orElseThrow(() -> new java.util.NoSuchElementException());
     LOGGER.log(
-        System.Logger.Level.INFO,
+        io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
         "Multipart completion started uploadId={0} storageId={1} bytes={2} workerId={3}",
         task.id(),
         task.storageId(),
@@ -111,11 +113,12 @@ public final class UploadCompletionWorker implements AutoCloseable {
 
     try {
       StorageProvider storage = storages.require(task.storageId());
-      if (!(storage instanceof MultipartStorageProvider multipart)) {
+      if (!(storage instanceof MultipartStorageProvider)) {
         throw new FileBridgeException(
             FileBridgeErrorCode.CAPABILITY_NOT_SUPPORTED,
             "Storage does not support multipart completion");
       }
+      MultipartStorageProvider multipart = (MultipartStorageProvider) storage;
       List<UploadedPart> parts =
           uploads.findCompletedParts(task.id()).stream()
               .sorted(Comparator.comparingInt(UploadPart::partNumber))
@@ -123,9 +126,9 @@ public final class UploadCompletionWorker implements AutoCloseable {
                   part ->
                       new UploadedPart(
                           part.partNumber(), part.size(), part.sha256(), part.providerPartTag()))
-              .toList();
+              .collect(java.util.stream.Collectors.toList());
       LOGGER.log(
-          System.Logger.Level.DEBUG,
+          io.github.chansan.filebridge.core.util.BridgeLog.Level.DEBUG,
           "Multipart completion parts loaded uploadId={0} completedParts={1}/{2}",
           task.id(),
           parts.size(),
@@ -136,7 +139,7 @@ public final class UploadCompletionWorker implements AutoCloseable {
       if (existing.isPresent()) {
         stored = existing.get();
         LOGGER.log(
-            System.Logger.Level.INFO,
+            io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
             "Multipart completed object recovered uploadId={0} storageId={1}",
             task.id(),
             task.storageId());
@@ -147,7 +150,7 @@ public final class UploadCompletionWorker implements AutoCloseable {
                 parts,
                 task.contentType());
         LOGGER.log(
-            System.Logger.Level.INFO,
+            io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
             "Multipart parts merged uploadId={0} storageId={1} parts={2}",
             task.id(),
             task.storageId(),
@@ -160,7 +163,7 @@ public final class UploadCompletionWorker implements AutoCloseable {
       }
 
       LOGGER.log(
-          System.Logger.Level.INFO,
+          io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
           "Multipart verification started uploadId={0} storageId={1} expectedBytes={2}",
           task.id(),
           task.storageId(),
@@ -213,8 +216,9 @@ public final class UploadCompletionWorker implements AutoCloseable {
       long duration = System.nanoTime() - started;
       metrics.record("completion", "success", task.expectedSize(), duration);
       LOGGER.log(
-          System.Logger.Level.INFO,
-          "Multipart completion finished uploadId={0} fileId={1} storageId={2} bytes={3} durationMs={4}",
+          io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
+          "Multipart completion finished uploadId={0} fileId={1} storageId={2} bytes={3}"
+              + " durationMs={4}",
           task.id(),
           fileId,
           task.storageId(),
@@ -254,17 +258,19 @@ public final class UploadCompletionWorker implements AutoCloseable {
   }
 
   private static boolean isPermanent(RuntimeException error) {
-    if (!(error instanceof FileBridgeException fileBridgeError)) return false;
-    return switch (fileBridgeError.code()) {
-      case CHECKSUM_MISMATCH,
-          INVALID_PART,
-          INVALID_REQUEST,
-          INVALID_UPLOAD_STATE,
-          CAPABILITY_NOT_SUPPORTED,
-          CONFIGURATION_ERROR ->
-          true;
-      default -> false;
-    };
+    if (!(error instanceof FileBridgeException)) return false;
+    FileBridgeException fileBridgeError = (FileBridgeException) error;
+    switch (fileBridgeError.code()) {
+      case CHECKSUM_MISMATCH:
+      case INVALID_PART:
+      case INVALID_REQUEST:
+      case INVALID_UPLOAD_STATE:
+      case CAPABILITY_NOT_SUPPORTED:
+      case CONFIGURATION_ERROR:
+        return true;
+      default:
+        return false;
+    }
   }
 
   /**
@@ -291,9 +297,9 @@ public final class UploadCompletionWorker implements AutoCloseable {
             + " errorCode="
             + errorCode(error);
     if (error instanceof FileBridgeException) {
-      LOGGER.log(System.Logger.Level.WARNING, message);
+      LOGGER.log(io.github.chansan.filebridge.core.util.BridgeLog.Level.WARNING, message);
     } else {
-      LOGGER.log(System.Logger.Level.ERROR, message, error);
+      LOGGER.log(io.github.chansan.filebridge.core.util.BridgeLog.Level.ERROR, message, error);
     }
   }
 
@@ -304,9 +310,10 @@ public final class UploadCompletionWorker implements AutoCloseable {
    * @return 错误码或异常类型名
    */
   private static String errorCode(RuntimeException error) {
-    return error instanceof FileBridgeException fileBridgeError
-        ? fileBridgeError.code().name()
-        : error.getClass().getSimpleName();
+    if (error instanceof FileBridgeException) {
+      return ((FileBridgeException) error).code().name();
+    }
+    return error.getClass().getSimpleName();
   }
 
   /**
@@ -328,7 +335,7 @@ public final class UploadCompletionWorker implements AutoCloseable {
           size += n;
         }
       }
-      return new Verified(size, HexFormat.of().formatHex(d.digest()));
+      return new Verified(size, io.github.chansan.filebridge.core.util.HexUtils.toHex(d.digest()));
     } catch (IOException | NoSuchAlgorithmException e) {
       throw new FileBridgeException(
           FileBridgeErrorCode.STORAGE_FAILURE, "Unable to verify completed object", e);
@@ -346,5 +353,21 @@ public final class UploadCompletionWorker implements AutoCloseable {
     heartbeatExecutor.shutdownNow();
   }
 
-  private record Verified(long size, String sha) {}
+  private static final class Verified {
+    private final long size;
+    private final String sha;
+
+    private Verified(long size, String sha) {
+      this.size = size;
+      this.sha = sha;
+    }
+
+    private long size() {
+      return size;
+    }
+
+    private String sha() {
+      return sha;
+    }
+  }
 }

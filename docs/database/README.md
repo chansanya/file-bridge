@@ -2,7 +2,7 @@
 
 ## 支持范围
 
-- 数据库：MySQL 8.4
+- 数据库：MySQL 5.7～8.4
 - 字符集：`utf8mb4`
 - 时间字段：UTC `DATETIME(6)`
 - UUID：`CHAR(36)`

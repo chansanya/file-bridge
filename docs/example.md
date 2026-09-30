@@ -50,7 +50,7 @@ npm run build
 
 ```bash
 ./mvnw install -DskipTests
-java -jar example/target/example-0.1.0-SNAPSHOT.jar --spring.profiles.active=demo
+java -jar example/target/example-0.1.0-jdk8-SNAPSHOT.jar --spring.profiles.active=demo
 ```
 
 ## 4. 上传策略

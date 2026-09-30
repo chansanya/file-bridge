@@ -30,11 +30,9 @@ public final class JdbcReconciliationRepository implements ReconciliationReposit
       Instant now) {
     jdbc.update(
         "INSERT INTO fb_reconciliation_issue"
-            + "(fingerprint,issue_type,storage_id,bucket_name,object_key,provider_upload_id,entity_id,"
-            + "status,attempts,last_error,next_attempt_at,created_at,updated_at) "
-            + "VALUES(:fingerprint,:type,:storage,:bucket,:objectKey,:providerUploadId,:entity,"
-            + "'OPEN',0,:error,:next,:now,:now) "
-            + "ON DUPLICATE KEY UPDATE "
+            + "(fingerprint,issue_type,storage_id,bucket_name,object_key,provider_upload_id,entity_id,status,attempts,last_error,next_attempt_at,created_at,updated_at)"
+            + " VALUES(:fingerprint,:type,:storage,:bucket,:objectKey,:providerUploadId,:entity,'OPEN',0,:error,:next,:now,:now)"
+            + " ON DUPLICATE KEY UPDATE "
             + "status=IF(fb_reconciliation_issue.status='RESOLVED','OPEN',fb_reconciliation_issue.status),"
             + "last_error=VALUES(last_error),next_attempt_at=VALUES(next_attempt_at),"
             + "resolved_at=NULL,updated_at=VALUES(updated_at)",
@@ -52,32 +50,33 @@ public final class JdbcReconciliationRepository implements ReconciliationReposit
     return jdbc
         .query(
             "SELECT * FROM fb_reconciliation_issue WHERE fingerprint=:fingerprint",
-            Map.of("fingerprint", fingerprint),
+            JdbcParameters.of("fingerprint", fingerprint),
             MAPPER)
         .stream()
         .findFirst()
-        .orElseThrow();
+        .orElseThrow(() -> new java.util.NoSuchElementException());
   }
 
   @Override
   public List<ReconciliationIssue> findDue(Instant now, int limit) {
     return jdbc.query(
-        "SELECT * FROM fb_reconciliation_issue WHERE (status IN ('OPEN','RETRY_WAIT') OR (status='PROCESSING' AND lease_until<:now)) "
-            + "AND (next_attempt_at IS NULL OR next_attempt_at<=:now) "
-            + "AND (lease_owner IS NULL OR lease_until<:now) ORDER BY updated_at LIMIT "
+        "SELECT * FROM fb_reconciliation_issue WHERE (status IN ('OPEN','RETRY_WAIT') OR"
+            + " (status='PROCESSING' AND lease_until<:now)) AND (next_attempt_at IS NULL OR"
+            + " next_attempt_at<=:now) AND (lease_owner IS NULL OR lease_until<:now) ORDER BY"
+            + " updated_at LIMIT "
             + safeLimit(limit),
-        Map.of("now", ts(now)),
+        JdbcParameters.of("now", ts(now)),
         MAPPER);
   }
 
   @Override
   public boolean acquire(long id, String owner, Instant until, Instant now) {
     return jdbc.update(
-            "UPDATE fb_reconciliation_issue SET status='PROCESSING',lease_owner=:owner,"
-                + "lease_until=:until,attempts=attempts+1,updated_at=:now WHERE id=:id "
-                + "AND (status IN ('OPEN','RETRY_WAIT') OR (status='PROCESSING' AND lease_until<:now)) "
-                + "AND (lease_owner IS NULL OR lease_until<:now)",
-            Map.of("id", id, "owner", owner, "until", ts(until), "now", ts(now)))
+            "UPDATE fb_reconciliation_issue SET"
+                + " status='PROCESSING',lease_owner=:owner,lease_until=:until,attempts=attempts+1,updated_at=:now"
+                + " WHERE id=:id AND (status IN ('OPEN','RETRY_WAIT') OR (status='PROCESSING' AND"
+                + " lease_until<:now)) AND (lease_owner IS NULL OR lease_until<:now)",
+            JdbcParameters.of("id", id, "owner", owner, "until", ts(until), "now", ts(now)))
         == 1;
   }
 

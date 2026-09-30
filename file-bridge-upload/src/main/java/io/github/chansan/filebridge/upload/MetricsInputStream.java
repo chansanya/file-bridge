@@ -7,7 +7,9 @@ import java.util.UUID;
 
 /** 在下载流关闭时记录实际读取字节数、持续时间和结果。 */
 final class MetricsInputStream extends FilterInputStream {
-  private static final System.Logger LOGGER = System.getLogger(MetricsInputStream.class.getName());
+  private static final io.github.chansan.filebridge.core.util.BridgeLog.Logger LOGGER =
+      io.github.chansan.filebridge.core.util.BridgeLog.getLogger(
+          MetricsInputStream.class.getName());
   private final FileBridgeMetrics metrics;
   private final UUID fileId;
   private final String storageId;
@@ -81,7 +83,7 @@ final class MetricsInputStream extends FilterInputStream {
     if (failure != null) {
       metrics.record("download", "failure", count, duration);
       LOGGER.log(
-          System.Logger.Level.WARNING,
+          io.github.chansan.filebridge.core.util.BridgeLog.Level.WARNING,
           "File download failed fileId="
               + fileId
               + " storageId="
@@ -99,7 +101,7 @@ final class MetricsInputStream extends FilterInputStream {
     if (count == expectedSize) {
       metrics.record("download", "success", count, duration);
       LOGGER.log(
-          System.Logger.Level.INFO,
+          io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
           "File download completed fileId={0} storageId={1} bytes={2} durationMs={3}",
           fileId,
           storageId,
@@ -108,8 +110,9 @@ final class MetricsInputStream extends FilterInputStream {
     } else {
       metrics.record("download", "incomplete", count, duration);
       LOGGER.log(
-          System.Logger.Level.DEBUG,
-          "File download stream closed fileId={0} storageId={1} bytes={2} expectedBytes={3} durationMs={4}",
+          io.github.chansan.filebridge.core.util.BridgeLog.Level.DEBUG,
+          "File download stream closed fileId={0} storageId={1} bytes={2} expectedBytes={3}"
+              + " durationMs={4}",
           fileId,
           storageId,
           count,

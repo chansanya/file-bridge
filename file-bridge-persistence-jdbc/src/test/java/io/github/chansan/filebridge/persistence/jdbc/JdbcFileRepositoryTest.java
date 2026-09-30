@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.*;
 
 import io.github.chansan.filebridge.core.model.*;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.*;
@@ -13,7 +12,7 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.*;
 
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 class JdbcFileRepositoryTest {
   @Container static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4");
   private JdbcFileRepository repository;
@@ -46,7 +45,7 @@ class JdbcFileRepositoryTest {
 
   @Test
   void keepsPhysicalObjectSeparateFromBusinessReference() {
-    Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+    Instant now = Instant.ofEpochMilli(System.currentTimeMillis());
     UUID objectId = UUID.randomUUID();
     StorageObjectRecord object =
         new StorageObjectRecord(
@@ -98,9 +97,9 @@ class JdbcFileRepositoryTest {
     idempotencyRepository.save(
         "tenant", "owner", "UPLOAD_INIT", "expired-key", "old-hash", "UPLOAD:old", expiresAt);
     jdbc.update(
-        "UPDATE fb_idempotency_record SET expires_at=DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 1 SECOND) "
-            + "WHERE idempotency_key='expired-key'",
-        java.util.Map.of());
+        "UPDATE fb_idempotency_record SET expires_at=DATE_SUB(CURRENT_TIMESTAMP(6), INTERVAL 1"
+            + " SECOND) WHERE idempotency_key='expired-key'",
+        java.util.Collections.emptyMap());
 
     String response =
         idempotencyRepository.save(
@@ -111,7 +110,7 @@ class JdbcFileRepositoryTest {
 
   @Test
   void startsRetentionWhenLastReferenceIsDeleted() {
-    Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+    Instant now = Instant.ofEpochMilli(System.currentTimeMillis());
     UUID objectId = UUID.randomUUID();
     repository.insertObject(object(objectId, now));
     FileReference reference = reference(objectId, now);
@@ -126,7 +125,7 @@ class JdbcFileRepositoryTest {
 
   @Test
   void refusesNewReferenceAfterDeleteHasBeenClaimed() {
-    Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+    Instant now = Instant.ofEpochMilli(System.currentTimeMillis());
     UUID objectId = UUID.randomUUID();
     repository.insertObject(object(objectId, now));
     assertThat(repository.markObjectDeletePending(objectId, now)).isTrue();
@@ -137,7 +136,7 @@ class JdbcFileRepositoryTest {
 
   @Test
   void persistsAndRetriesReconciliationIssue() {
-    Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+    Instant now = Instant.ofEpochMilli(System.currentTimeMillis());
     ReconciliationIssue issue =
         reconciliationRepository.upsert(
             "OBJECT_DELETE_FAILED:1",
@@ -164,7 +163,7 @@ class JdbcFileRepositoryTest {
 
   @Test
   void coordinatesCompletionRequestLeaseAndRetry() {
-    Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
+    Instant now = Instant.ofEpochMilli(System.currentTimeMillis());
     UUID uploadId = UUID.randomUUID();
     uploadRepository.insertTask(
         new UploadTask(

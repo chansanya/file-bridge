@@ -2,12 +2,12 @@ package io.github.chansan.example.web;
 
 import io.github.chansan.filebridge.core.model.*;
 import io.github.chansan.filebridge.core.service.*;
-import jakarta.servlet.http.HttpServletRequest;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
+import javax.servlet.http.HttpServletRequest;
 import org.slf4j.MDC;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -102,20 +102,18 @@ public final class FileController {
     String requestId = Objects.toString(request.getAttribute(RequestIdFilter.ATTRIBUTE), "unknown");
     long totalSize = resource.metadata().size();
     String safe = resource.metadata().originalName().replace("\"", "");
-    String disposition =
-        "attachment; filename*=UTF-8''"
-            + java.net.URLEncoder.encode(safe, StandardCharsets.UTF_8).replace("+", "%20");
+    String disposition = "attachment; filename*=UTF-8''" + encodeFileName(safe);
     MediaType mediaType =
         MediaType.parseMediaType(
             Optional.ofNullable(resource.metadata().contentType())
                 .orElse(MediaType.APPLICATION_OCTET_STREAM_VALUE));
 
-    if (rangeHeader == null || rangeHeader.isBlank()) {
+    if (rangeHeader == null || rangeHeader.trim().isEmpty()) {
       StreamingResponseBody body =
           out -> {
             try (MDC.MDCCloseable ignored = MDC.putCloseable("requestId", requestId);
-                resource) {
-              resource.stream().transferTo(out);
+                FileResource closeableResource = resource) {
+              io.github.chansan.filebridge.core.util.IoUtils.copy(resource.stream(), out);
             }
           };
       return ResponseEntity.ok()
@@ -149,7 +147,7 @@ public final class FileController {
     StreamingResponseBody body =
         out -> {
           try (MDC.MDCCloseable ignored = MDC.putCloseable("requestId", requestId);
-              resource) {
+              FileResource closeableResource = resource) {
             InputStream in = resource.stream();
             long skipped = 0;
             while (skipped < start) {
@@ -177,6 +175,14 @@ public final class FileController {
         .body(body);
   }
 
+  private static String encodeFileName(String value) {
+    try {
+      return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8.name()).replace("+", "%20");
+    } catch (java.io.UnsupportedEncodingException error) {
+      throw new IllegalStateException("UTF-8 is not supported", error);
+    }
+  }
+
   /**
    * 创建短期下载地址。
    *
@@ -192,7 +198,7 @@ public final class FileController {
             ? 300
             : Math.max(1, Math.min(3600, request.validitySeconds()));
     URI uri = service.createAccessUrl(id, Duration.ofSeconds(seconds));
-    return Map.of("url", uri.toString());
+    return java.util.Collections.singletonMap("url", uri.toString());
   }
 
   /**
@@ -211,5 +217,17 @@ public final class FileController {
    *
    * @param validitySeconds 有效秒数；为空时使用默认值
    */
-  public record AccessUrlRequest(Long validitySeconds) {}
+  public static final class AccessUrlRequest {
+    private Long validitySeconds;
+
+    public AccessUrlRequest() {}
+
+    public Long validitySeconds() {
+      return validitySeconds;
+    }
+
+    public void setValiditySeconds(Long validitySeconds) {
+      this.validitySeconds = validitySeconds;
+    }
+  }
 }

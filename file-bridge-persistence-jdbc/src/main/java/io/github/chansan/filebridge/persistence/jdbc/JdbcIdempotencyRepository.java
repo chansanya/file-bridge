@@ -37,7 +37,7 @@ public final class JdbcIdempotencyRepository implements IdempotencyRepository {
             "SELECT request_hash,response_value FROM fb_idempotency_record WHERE tenant_id=:t AND"
                 + " owner_id=:o AND operation_name=:op AND idempotency_key=:k AND"
                 + " expires_at>CURRENT_TIMESTAMP(6)",
-            Map.of("t", t, "o", o, "op", op, "k", key));
+            JdbcParameters.of("t", t, "o", o, "op", op, "k", key));
     if (rows.isEmpty()) return Optional.empty();
     if (!hash.equals(rows.get(0).get("request_hash")))
       throw new FileBridgeException(
@@ -61,10 +61,9 @@ public final class JdbcIdempotencyRepository implements IdempotencyRepository {
   public String save(
       String t, String o, String op, String key, String hash, String response, Instant expires) {
     jdbc.update(
-        "INSERT INTO fb_idempotency_record"
-            + "(tenant_id,owner_id,operation_name,idempotency_key,request_hash,response_value,expires_at) "
-            + "VALUES(:t,:o,:op,:k,:h,:r,:e) "
-            + "ON DUPLICATE KEY UPDATE "
+        "INSERT INTO"
+            + " fb_idempotency_record(tenant_id,owner_id,operation_name,idempotency_key,request_hash,response_value,expires_at)"
+            + " VALUES(:t,:o,:op,:k,:h,:r,:e) ON DUPLICATE KEY UPDATE "
             + "request_hash=IF(fb_idempotency_record.expires_at<=CURRENT_TIMESTAMP(6),VALUES(request_hash),fb_idempotency_record.request_hash),"
             + "response_value=IF(fb_idempotency_record.expires_at<=CURRENT_TIMESTAMP(6),VALUES(response_value),fb_idempotency_record.response_value),"
             + "expires_at=IF(fb_idempotency_record.expires_at<=CURRENT_TIMESTAMP(6),VALUES(expires_at),fb_idempotency_record.expires_at)",
@@ -76,6 +75,7 @@ public final class JdbcIdempotencyRepository implements IdempotencyRepository {
             .addValue("h", hash)
             .addValue("r", response)
             .addValue("e", Timestamp.from(expires)));
-    return findResponse(t, o, op, key, hash).orElseThrow();
+    return findResponse(t, o, op, key, hash)
+        .orElseThrow(() -> new java.util.NoSuchElementException());
   }
 }

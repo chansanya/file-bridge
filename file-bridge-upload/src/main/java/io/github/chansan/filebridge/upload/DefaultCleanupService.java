@@ -8,8 +8,9 @@ import java.time.*;
 
 /** 过期任务和无引用对象清理服务。 */
 public final class DefaultCleanupService implements CleanupService {
-  private static final System.Logger LOGGER =
-      System.getLogger(DefaultCleanupService.class.getName());
+  private static final io.github.chansan.filebridge.core.util.BridgeLog.Logger LOGGER =
+      io.github.chansan.filebridge.core.util.BridgeLog.getLogger(
+          DefaultCleanupService.class.getName());
   private final UploadRepository uploads;
   private final FileRepository files;
   private final StorageRegistry storages;
@@ -53,7 +54,8 @@ public final class DefaultCleanupService implements CleanupService {
       if (uploads.cancel(t.id(), Instant.now())) {
         StorageProvider p = storages.require(t.storageId());
         try {
-          if (p instanceof MultipartStorageProvider multipart) {
+          if (p instanceof MultipartStorageProvider) {
+            MultipartStorageProvider multipart = (MultipartStorageProvider) p;
             multipart.abortMultipart(
                 new MultipartUploadHandle(t.providerUploadId(), t.objectKey()));
           }
@@ -96,7 +98,10 @@ public final class DefaultCleanupService implements CleanupService {
         files.markObjectDeleted(o.id(), Instant.now());
         count++;
       } catch (RuntimeException e) {
-        LOGGER.log(System.Logger.Level.WARNING, "Object cleanup failed: " + o.id(), e);
+        LOGGER.log(
+            io.github.chansan.filebridge.core.util.BridgeLog.Level.WARNING,
+            "Object cleanup failed: " + o.id(),
+            e);
         Instant failedAt = Instant.now();
         issues.upsert(
             "OBJECT_DELETE_FAILED:" + o.id(),

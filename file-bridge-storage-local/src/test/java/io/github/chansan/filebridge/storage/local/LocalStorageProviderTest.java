@@ -16,13 +16,14 @@ class LocalStorageProviderTest {
   void writesReadsAndDeletesWithoutTrustingOriginalNames() throws Exception {
     LocalStorageProvider provider =
         new LocalStorageProvider("local", temp.resolve("data"), temp.resolve("tmp"));
-    var stored =
+    io.github.chansan.filebridge.core.model.StoredObject stored =
         provider.write(
             new ObjectWriteRequest("2026/09/id", 5L, "text/plain"),
             new ByteArrayInputStream("hello".getBytes()));
     assertThat(stored.sha256()).hasSize(64);
-    try (var in = provider.open(stored.location())) {
-      assertThat(in.readAllBytes()).isEqualTo("hello".getBytes());
+    try (InputStream in = provider.open(stored.location())) {
+      assertThat(io.github.chansan.filebridge.core.util.IoUtils.readAllBytes(in))
+          .isEqualTo("hello".getBytes());
     }
     provider.delete(stored.location());
     assertThat(provider.stat(stored.location())).isEmpty();

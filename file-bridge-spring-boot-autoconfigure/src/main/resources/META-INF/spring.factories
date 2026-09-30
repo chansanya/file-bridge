@@ -1,0 +1,4 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+io.github.chansan.filebridge.autoconfigure.NoOpMetricsAutoConfiguration,\
+io.github.chansan.filebridge.autoconfigure.FileBridgeAutoConfiguration,\
+io.github.chansan.filebridge.autoconfigure.FileBridgeJobConfiguration

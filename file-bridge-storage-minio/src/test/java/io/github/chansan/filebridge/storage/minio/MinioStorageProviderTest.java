@@ -13,7 +13,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.*;
 
 @EnabledIfEnvironmentVariable(named = "FILE_BRIDGE_MINIO_TEST", matches = "true")
-@Testcontainers(disabledWithoutDocker = true)
+@Testcontainers
 class MinioStorageProviderTest {
   private static final String ACCESS_KEY = "minioadmin";
   private static final String SECRET_KEY = "minioadmin";
@@ -53,7 +53,8 @@ class MinioStorageProviderTest {
 
     assertThat(provider.stat(stored.location())).isPresent();
     try (InputStream input = provider.open(stored.location())) {
-      assertThat(input.readAllBytes()).isEqualTo(content);
+      assertThat(io.github.chansan.filebridge.core.util.IoUtils.readAllBytes(input))
+          .isEqualTo(content);
     }
     provider.delete(stored.location());
     assertThat(provider.stat(stored.location())).isEmpty();
@@ -71,7 +72,8 @@ class MinioStorageProviderTest {
         provider.uploadPart(handle, 2, last.length, new ByteArrayInputStream(last));
 
     StoredObject completed =
-        provider.completeMultipart(handle, List.of(part1, part2), "application/octet-stream");
+        provider.completeMultipart(
+            handle, java.util.Arrays.asList(part1, part2), "application/octet-stream");
 
     assertThat(completed.size()).isEqualTo(first.length + last.length);
   }

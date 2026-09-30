@@ -5,7 +5,6 @@ import io.github.chansan.example.web.RequestIdFilter;
 import io.github.chansan.filebridge.core.error.*;
 import io.github.chansan.filebridge.core.model.*;
 import io.github.chansan.filebridge.core.spi.*;
-import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.*;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -68,7 +67,8 @@ public class ExampleApplication {
      */
     @Bean
     CurrentActorProvider actor() {
-      return () -> new Actor("demo-tenant", "demo-user", Map.of("mode", "demo"));
+      return () ->
+          new Actor("demo-tenant", "demo-user", java.util.Collections.singletonMap("mode", "demo"));
     }
 
     /**

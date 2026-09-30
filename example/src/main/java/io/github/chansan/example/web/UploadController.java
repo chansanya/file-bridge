@@ -2,11 +2,11 @@ package io.github.chansan.example.web;
 
 import io.github.chansan.filebridge.core.model.*;
 import io.github.chansan.filebridge.core.service.*;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
 import java.io.IOException;
 import java.util.UUID;
+import javax.servlet.http.HttpServletRequest;
+import javax.validation.Valid;
+import javax.validation.constraints.*;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
@@ -118,11 +118,65 @@ public final class UploadController {
    * @param businessType 业务类型
    * @param businessId 业务标识
    */
-  public record InitializeRequest(
-      @NotBlank String originalName,
-      @Positive long size,
-      @Pattern(regexp = "[0-9a-fA-F]{64}") String sha256,
-      String contentType,
-      String businessType,
-      String businessId) {}
+  public static final class InitializeRequest {
+    @NotBlank private String originalName;
+    @Positive private long size;
+
+    @Pattern(regexp = "[0-9a-fA-F]{64}")
+    private String sha256;
+
+    private String contentType;
+    private String businessType;
+    private String businessId;
+
+    public InitializeRequest() {}
+
+    public String originalName() {
+      return originalName;
+    }
+
+    public void setOriginalName(String originalName) {
+      this.originalName = originalName;
+    }
+
+    public long size() {
+      return size;
+    }
+
+    public void setSize(long size) {
+      this.size = size;
+    }
+
+    public String sha256() {
+      return sha256;
+    }
+
+    public void setSha256(String sha256) {
+      this.sha256 = sha256;
+    }
+
+    public String contentType() {
+      return contentType;
+    }
+
+    public void setContentType(String contentType) {
+      this.contentType = contentType;
+    }
+
+    public String businessType() {
+      return businessType;
+    }
+
+    public void setBusinessType(String businessType) {
+      this.businessType = businessType;
+    }
+
+    public String businessId() {
+      return businessId;
+    }
+
+    public void setBusinessId(String businessId) {
+      this.businessId = businessId;
+    }
+  }
 }

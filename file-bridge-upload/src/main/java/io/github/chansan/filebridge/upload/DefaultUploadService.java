@@ -11,8 +11,9 @@ import java.util.*;
 
 /** 分片上传、断点续传和秒传的默认实现。 */
 public final class DefaultUploadService implements UploadService {
-  private static final System.Logger LOGGER =
-      System.getLogger(DefaultUploadService.class.getName());
+  private static final io.github.chansan.filebridge.core.util.BridgeLog.Logger LOGGER =
+      io.github.chansan.filebridge.core.util.BridgeLog.getLogger(
+          DefaultUploadService.class.getName());
   private final UploadRepository uploads;
   private final FileRepository files;
   private final IdempotencyRepository idempotency;
@@ -85,7 +86,7 @@ public final class DefaultUploadService implements UploadService {
   @Override
   public UploadInitialization initialize(InitializeUploadCommand c) {
     LOGGER.log(
-        System.Logger.Level.INFO,
+        io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
         "Multipart upload initialization started storageId={0} bytes={1}",
         defaultStorage,
         c.size());
@@ -164,10 +165,12 @@ public final class DefaultUploadService implements UploadService {
       }
     }
     StorageProvider provider = storages.require(defaultStorage);
-    if (!(provider instanceof MultipartStorageProvider multipart))
+    if (!(provider instanceof MultipartStorageProvider)) {
       throw new FileBridgeException(
           FileBridgeErrorCode.CAPABILITY_NOT_SUPPORTED,
           "Storage does not support multipart uploads");
+    }
+    MultipartStorageProvider multipart = (MultipartStorageProvider) provider;
     // 分片规则取配置偏好与平台限制的交集，不能把本地默认值硬塞给云平台。
     StorageCapabilities caps = provider.capabilities();
     long partSize = Math.max(preferredPartSize, caps.minimumPartSize());
@@ -230,7 +233,8 @@ public final class DefaultUploadService implements UploadService {
       } catch (RuntimeException cleanup) {
         e.addSuppressed(cleanup);
       }
-      if (e instanceof IdempotencyReplayException replay) {
+      if (e instanceof IdempotencyReplayException) {
+        IdempotencyReplayException replay = (IdempotencyReplayException) e;
         UploadInitialization result = decode(replay.responseValue());
         logInitialization("concurrent-replay", result, c.size());
         return result;
@@ -240,8 +244,9 @@ public final class DefaultUploadService implements UploadService {
     UploadInitialization result =
         UploadInitialization.upload(id, partSize, total, task.expiresAt());
     LOGGER.log(
-        System.Logger.Level.INFO,
-        "Multipart upload initialized uploadId={0} storageId={1} bytes={2} partSize={3} totalParts={4} expiresAt={5}",
+        io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
+        "Multipart upload initialized uploadId={0} storageId={1} bytes={2} partSize={3}"
+            + " totalParts={4} expiresAt={5}",
         id,
         defaultStorage,
         c.size(),
@@ -300,7 +305,7 @@ public final class DefaultUploadService implements UploadService {
     UploadPart saved = uploads.saveCompletedPart(part);
     if (task.status() == UploadTaskStatus.CREATED) uploads.markUploading(id, task.version(), now);
     LOGGER.log(
-        System.Logger.Level.DEBUG,
+        io.github.chansan.filebridge.core.util.BridgeLog.Level.DEBUG,
         "Multipart part stored uploadId={0} storageId={1} part={2}/{3} bytes={4}",
         id,
         task.storageId(),
@@ -333,7 +338,7 @@ public final class DefaultUploadService implements UploadService {
     UploadTask t = requireAccessible(id);
     if (t.status() == UploadTaskStatus.COMPLETED) {
       LOGGER.log(
-          System.Logger.Level.INFO,
+          io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
           "Multipart completion replay uploadId={0} fileId={1} storageId={2}",
           id,
           t.resultFileId(),
@@ -349,7 +354,7 @@ public final class DefaultUploadService implements UploadService {
     uploads.requestCompletion(id, requestedAt);
     UploadStatusView result = view(uploads.findTask(id).orElse(t));
     LOGGER.log(
-        System.Logger.Level.INFO,
+        io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
         "Multipart completion requested uploadId={0} storageId={1} totalParts={2}",
         id,
         t.storageId(),
@@ -367,7 +372,7 @@ public final class DefaultUploadService implements UploadService {
     UploadTask t = requireAccessible(id);
     if (t.status() == UploadTaskStatus.COMPLETED) {
       LOGGER.log(
-          System.Logger.Level.DEBUG,
+          io.github.chansan.filebridge.core.util.BridgeLog.Level.DEBUG,
           "Multipart cancellation ignored uploadId={0} status={1}",
           id,
           t.status());
@@ -378,14 +383,14 @@ public final class DefaultUploadService implements UploadService {
         asMultipart(t)
             .abortMultipart(new MultipartUploadHandle(t.providerUploadId(), t.objectKey()));
         LOGGER.log(
-            System.Logger.Level.INFO,
+            io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
             "Multipart upload cancelled uploadId={0} storageId={1}",
             id,
             t.storageId());
       } catch (RuntimeException error) {
         recordAbortFailure(t, error);
         LOGGER.log(
-            System.Logger.Level.WARNING,
+            io.github.chansan.filebridge.core.util.BridgeLog.Level.WARNING,
             "Multipart cancellation requires reconciliation uploadId="
                 + id
                 + " storageId="
@@ -453,7 +458,7 @@ public final class DefaultUploadService implements UploadService {
    */
   private MultipartStorageProvider asMultipart(UploadTask t) {
     StorageProvider p = storages.require(t.storageId());
-    if (p instanceof MultipartStorageProvider m) return m;
+    if (p instanceof MultipartStorageProvider) return (MultipartStorageProvider) p;
     throw new FileBridgeException(
         FileBridgeErrorCode.CAPABILITY_NOT_SUPPORTED, "Storage does not support multipart uploads");
   }
@@ -489,7 +494,9 @@ public final class DefaultUploadService implements UploadService {
         t.expectedSize(),
         t.partSize(),
         t.totalParts(),
-        uploads.findCompletedParts(t.id()).stream().map(UploadPart::partNumber).toList(),
+        uploads.findCompletedParts(t.id()).stream()
+            .map(UploadPart::partNumber)
+            .collect(java.util.stream.Collectors.toList()),
         t.resultFileId(),
         t.expiresAt());
   }
@@ -532,10 +539,9 @@ public final class DefaultUploadService implements UploadService {
             Objects.toString(c.businessType(), ""),
             Objects.toString(c.businessId(), ""));
     try {
-      return HexFormat.of()
-          .formatHex(
-              java.security.MessageDigest.getInstance("SHA-256")
-                  .digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+      return io.github.chansan.filebridge.core.util.HexUtils.toHex(
+          java.security.MessageDigest.getInstance("SHA-256")
+              .digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     } catch (java.security.NoSuchAlgorithmException e) {
       throw new IllegalStateException(e);
     }
@@ -572,7 +578,7 @@ public final class DefaultUploadService implements UploadService {
    * @return 非空且包含非空白字符时返回 {@code true}
    */
   private static boolean hasText(String s) {
-    return s != null && !s.isBlank();
+    return s != null && !s.trim().isEmpty();
   }
 
   /**
@@ -584,8 +590,9 @@ public final class DefaultUploadService implements UploadService {
    */
   private void logInitialization(String outcome, UploadInitialization result, long bytes) {
     LOGGER.log(
-        System.Logger.Level.INFO,
-        "Multipart initialization resolved outcome={0} mode={1} uploadId={2} fileId={3} storageId={4} bytes={5}",
+        io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
+        "Multipart initialization resolved outcome={0} mode={1} uploadId={2} fileId={3}"
+            + " storageId={4} bytes={5}",
         outcome,
         result.mode(),
         result.uploadId(),
@@ -618,9 +625,9 @@ public final class DefaultUploadService implements UploadService {
             + " errorCode="
             + errorCode(error);
     if (error instanceof FileBridgeException) {
-      LOGGER.log(System.Logger.Level.WARNING, message);
+      LOGGER.log(io.github.chansan.filebridge.core.util.BridgeLog.Level.WARNING, message);
     } else {
-      LOGGER.log(System.Logger.Level.ERROR, message, error);
+      LOGGER.log(io.github.chansan.filebridge.core.util.BridgeLog.Level.ERROR, message, error);
     }
   }
 
@@ -631,8 +638,9 @@ public final class DefaultUploadService implements UploadService {
    * @return 错误码或异常类型名
    */
   private static String errorCode(RuntimeException error) {
-    return error instanceof FileBridgeException fileBridgeError
-        ? fileBridgeError.code().name()
-        : error.getClass().getSimpleName();
+    if (error instanceof FileBridgeException) {
+      return ((FileBridgeException) error).code().name();
+    }
+    return error.getClass().getSimpleName();
   }
 }

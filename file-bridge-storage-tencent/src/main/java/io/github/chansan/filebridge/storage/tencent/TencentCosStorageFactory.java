@@ -20,7 +20,7 @@ public final class TencentCosStorageFactory implements StorageProviderFactory {
    */
   @Override
   public Set<String> types() {
-    return Set.of("tencent", "tencent-cos");
+    return new java.util.LinkedHashSet<String>(java.util.Arrays.asList("tencent", "tencent-cos"));
   }
 
   @Override
@@ -41,7 +41,8 @@ public final class TencentCosStorageFactory implements StorageProviderFactory {
    */
   private static String required(Map<String, String> c, String k) {
     String v = c.get(k);
-    if (v == null || v.isBlank()) throw new IllegalArgumentException("Missing Tencent COS " + k);
+    if (v == null || v.trim().isEmpty())
+      throw new IllegalArgumentException("Missing Tencent COS " + k);
     return v;
   }
 }

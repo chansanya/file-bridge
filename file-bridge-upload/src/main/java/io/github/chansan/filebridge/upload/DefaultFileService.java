@@ -13,7 +13,9 @@ import java.util.*;
 
 /** 普通文件业务服务默认实现。 */
 public final class DefaultFileService implements FileService {
-  private static final System.Logger LOGGER = System.getLogger(DefaultFileService.class.getName());
+  private static final io.github.chansan.filebridge.core.util.BridgeLog.Logger LOGGER =
+      io.github.chansan.filebridge.core.util.BridgeLog.getLogger(
+          DefaultFileService.class.getName());
   private final FileRepository files;
   private final IdempotencyRepository idempotency;
   private final ReconciliationRepository issues;
@@ -84,7 +86,7 @@ public final class DefaultFileService implements FileService {
   public FileMetadata upload(UploadFileCommand command, InputStream source) {
     long started = System.nanoTime();
     LOGGER.log(
-        System.Logger.Level.INFO,
+        io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
         "File upload started storageId={0} expectedBytes={1}",
         defaultStorage,
         command.expectedSize());
@@ -93,7 +95,7 @@ public final class DefaultFileService implements FileService {
       long duration = System.nanoTime() - started;
       metrics.record("upload", "success", result.size(), duration);
       LOGGER.log(
-          System.Logger.Level.INFO,
+          io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
           "File upload completed fileId={0} storageId={1} bytes={2} durationMs={3}",
           result.fileId(),
           defaultStorage,
@@ -129,7 +131,7 @@ public final class DefaultFileService implements FileService {
       if (prior.isPresent()) {
         UUID fileId = UUID.fromString(prior.get());
         LOGGER.log(
-            System.Logger.Level.INFO,
+            io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
             "File upload idempotency replay fileId={0} storageId={1}",
             fileId,
             defaultStorage);
@@ -149,7 +151,7 @@ public final class DefaultFileService implements FileService {
       StoredObject stored =
           storage.write(new ObjectWriteRequest(key, command.expectedSize(), type), input);
       LOGGER.log(
-          System.Logger.Level.DEBUG,
+          io.github.chansan.filebridge.core.util.BridgeLog.Level.DEBUG,
           "File content stored storageId={0} bytes={1}",
           stored.location().storageId(),
           stored.size());
@@ -209,10 +211,11 @@ public final class DefaultFileService implements FileService {
           e.addSuppressed(cleanup);
           recordUntrackedObject(stored, cleanup);
         }
-        if (e instanceof IdempotencyReplayException replay) {
+        if (e instanceof IdempotencyReplayException) {
+          IdempotencyReplayException replay = (IdempotencyReplayException) e;
           UUID replayedFileId = UUID.fromString(replay.responseValue());
           LOGGER.log(
-              System.Logger.Level.INFO,
+              io.github.chansan.filebridge.core.util.BridgeLog.Level.INFO,
               "File upload concurrent replay fileId={0} storageId={1}",
               replayedFileId,
               defaultStorage);
@@ -249,7 +252,7 @@ public final class DefaultFileService implements FileService {
     Resolved r = resolve(fileId);
     String storageId = r.object.location().storageId();
     LOGGER.log(
-        System.Logger.Level.DEBUG,
+        io.github.chansan.filebridge.core.util.BridgeLog.Level.DEBUG,
         "File download opened fileId={0} storageId={1} expectedBytes={2}",
         fileId,
         storageId,
@@ -275,9 +278,11 @@ public final class DefaultFileService implements FileService {
   public URI createAccessUrl(UUID fileId, Duration validity) {
     Resolved r = resolve(fileId);
     StorageProvider p = storages.require(r.object.location().storageId());
-    if (!(p instanceof SignedUrlProvider signed))
+    if (!(p instanceof SignedUrlProvider)) {
       throw new FileBridgeException(
           FileBridgeErrorCode.CAPABILITY_NOT_SUPPORTED, "Storage does not support signed URLs");
+    }
+    SignedUrlProvider signed = (SignedUrlProvider) p;
     return signed.createDownloadUrl(r.object.location(), validity);
   }
 
@@ -377,10 +382,10 @@ public final class DefaultFileService implements FileService {
    * @return 安全展示文件名
    */
   private static String safeName(String n) {
-    if (n == null || n.isBlank()) return "file";
+    if (n == null || n.trim().isEmpty()) return "file";
     String v = n.replace('\\', '/');
     v = v.substring(v.lastIndexOf('/') + 1).replaceAll("[\\r\\n\\u0000]", "_");
-    return v.isBlank() ? "file" : v;
+    return v.trim().isEmpty() ? "file" : v;
   }
 
   /**
@@ -408,10 +413,9 @@ public final class DefaultFileService implements FileService {
    */
   private static String sha256(String s) {
     try {
-      return HexFormat.of()
-          .formatHex(
-              MessageDigest.getInstance("SHA-256")
-                  .digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+      return io.github.chansan.filebridge.core.util.HexUtils.toHex(
+          MessageDigest.getInstance("SHA-256")
+              .digest(s.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException e) {
       throw new IllegalStateException(e);
     }
@@ -424,7 +428,7 @@ public final class DefaultFileService implements FileService {
    * @return 非空且包含非空白字符时返回 {@code true}
    */
   private static boolean hasText(String s) {
-    return s != null && !s.isBlank();
+    return s != null && !s.trim().isEmpty();
   }
 
   /**
@@ -453,9 +457,9 @@ public final class DefaultFileService implements FileService {
             + " errorCode="
             + errorCode(error);
     if (error instanceof FileBridgeException) {
-      LOGGER.log(System.Logger.Level.WARNING, message);
+      LOGGER.log(io.github.chansan.filebridge.core.util.BridgeLog.Level.WARNING, message);
     } else {
-      LOGGER.log(System.Logger.Level.ERROR, message, error);
+      LOGGER.log(io.github.chansan.filebridge.core.util.BridgeLog.Level.ERROR, message, error);
     }
   }
 
@@ -466,9 +470,10 @@ public final class DefaultFileService implements FileService {
    * @return 错误码或异常类型名
    */
   private static String errorCode(RuntimeException error) {
-    return error instanceof FileBridgeException fileBridgeError
-        ? fileBridgeError.code().name()
-        : error.getClass().getSimpleName();
+    if (error instanceof FileBridgeException) {
+      return ((FileBridgeException) error).code().name();
+    }
+    return error.getClass().getSimpleName();
   }
 
   /**
@@ -487,5 +492,21 @@ public final class DefaultFileService implements FileService {
    * @param reference 业务文件引用
    * @param object 物理对象记录
    */
-  private record Resolved(FileReference reference, StorageObjectRecord object) {}
+  private static final class Resolved {
+    private final FileReference reference;
+    private final StorageObjectRecord object;
+
+    private Resolved(FileReference reference, StorageObjectRecord object) {
+      this.reference = reference;
+      this.object = object;
+    }
+
+    private FileReference reference() {
+      return reference;
+    }
+
+    private StorageObjectRecord object() {
+      return object;
+    }
+  }
 }

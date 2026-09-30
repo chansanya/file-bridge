@@ -1,8 +1,8 @@
 package io.github.chansan.example.web;
 
 import io.github.chansan.filebridge.core.error.*;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.ConstraintViolationException;
+import javax.servlet.http.HttpServletRequest;
+import javax.validation.ConstraintViolationException;
 import org.springframework.http.*;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -41,15 +41,27 @@ public final class FileBridgeExceptionHandler {
   }
 
   private static HttpStatus status(FileBridgeErrorCode code) {
-    return switch (code) {
-      case UNAUTHENTICATED -> HttpStatus.UNAUTHORIZED;
-      case FILE_NOT_FOUND, UPLOAD_NOT_FOUND, ACCESS_DENIED -> HttpStatus.NOT_FOUND;
-      case IDEMPOTENCY_CONFLICT, UPLOAD_PART_CONFLICT, INVALID_UPLOAD_STATE -> HttpStatus.CONFLICT;
-      case FILE_TOO_LARGE -> HttpStatus.PAYLOAD_TOO_LARGE;
-      case CAPABILITY_NOT_SUPPORTED -> HttpStatus.NOT_IMPLEMENTED;
-      case STORAGE_FAILURE, DATABASE_FAILURE -> HttpStatus.SERVICE_UNAVAILABLE;
-      default -> HttpStatus.BAD_REQUEST;
-    };
+    switch (code) {
+      case UNAUTHENTICATED:
+        return HttpStatus.UNAUTHORIZED;
+      case FILE_NOT_FOUND:
+      case UPLOAD_NOT_FOUND:
+      case ACCESS_DENIED:
+        return HttpStatus.NOT_FOUND;
+      case IDEMPOTENCY_CONFLICT:
+      case UPLOAD_PART_CONFLICT:
+      case INVALID_UPLOAD_STATE:
+        return HttpStatus.CONFLICT;
+      case FILE_TOO_LARGE:
+        return HttpStatus.PAYLOAD_TOO_LARGE;
+      case CAPABILITY_NOT_SUPPORTED:
+        return HttpStatus.NOT_IMPLEMENTED;
+      case STORAGE_FAILURE:
+      case DATABASE_FAILURE:
+        return HttpStatus.SERVICE_UNAVAILABLE;
+      default:
+        return HttpStatus.BAD_REQUEST;
+    }
   }
 
   private static ResponseEntity<FileBridgeErrorResponse> response(

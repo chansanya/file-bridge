@@ -83,7 +83,7 @@ public final class MinioStorageProvider
       return new StoredObject(
           new ObjectLocation(id, bucket, r.objectKey()),
           count.count,
-          HexFormat.of().formatHex(d.digest()),
+          io.github.chansan.filebridge.core.util.HexUtils.toHex(d.digest()),
           r.contentType(),
           Instant.now());
     } catch (Exception e) {
@@ -182,7 +182,7 @@ public final class MinioStorageProvider
   @Override
   public MultipartUploadHandle initiateMultipart(String key, String type) {
     try {
-      var response =
+      CreateMultipartUploadResponse response =
           client
               .createMultipartUpload(
                   CreateMultipartUploadArgs.builder().bucket(bucket).object(key).build())
@@ -209,11 +209,11 @@ public final class MinioStorageProvider
     // MinIO SDK 的单分片缓冲区受服务端协商的分片大小上限约束，不随整文件增长。
     try (io.minio.ByteBuffer buffer = new io.minio.ByteBuffer(length);
         DigestOutputStream out = new DigestOutputStream(buffer, d)) {
-      input.transferTo(out);
+      io.github.chansan.filebridge.core.util.IoUtils.copy(input, out);
       out.flush();
       if (buffer.length() != length)
         throw new FileBridgeException(FileBridgeErrorCode.INVALID_PART, "Part length mismatch");
-      var response =
+      UploadPartResponse response =
           client
               .uploadPart(
                   UploadPartArgs.builder()
@@ -225,7 +225,7 @@ public final class MinioStorageProvider
                       .build())
               .join();
       // ETag 仅用于平台完成请求，可信 SHA-256 由服务端独立计算。
-      String hash = HexFormat.of().formatHex(d.digest());
+      String hash = io.github.chansan.filebridge.core.util.HexUtils.toHex(d.digest());
       return new UploadedPart(number, length, hash, response.part().etag());
     } catch (Exception e) {
       throw fail("MinIO uploadPart failed", e);
@@ -241,7 +241,7 @@ public final class MinioStorageProvider
   @Override
   public List<UploadedPart> listParts(MultipartUploadHandle h) {
     try {
-      var result =
+      io.minio.messages.ListPartsResult result =
           client
               .listParts(
                   ListPartsArgs.builder()
@@ -253,7 +253,7 @@ public final class MinioStorageProvider
               .result();
       return result.parts().stream()
           .map(p -> new UploadedPart(p.partNumber(), p.partSize(), null, p.etag()))
-          .toList();
+          .collect(java.util.stream.Collectors.toList());
     } catch (Exception e) {
       throw fail("MinIO listParts failed", e);
     }
@@ -285,7 +285,8 @@ public final class MinioStorageProvider
                   .parts(values)
                   .build())
           .join();
-      return stat(new ObjectLocation(id, bucket, h.objectKey())).orElseThrow();
+      return stat(new ObjectLocation(id, bucket, h.objectKey()))
+          .orElseThrow(() -> new java.util.NoSuchElementException());
     } catch (Exception e) {
       throw fail("MinIO completeMultipart failed", e);
     }
@@ -349,7 +350,8 @@ public final class MinioStorageProvider
    */
   private static boolean isNotFound(Throwable error) {
     Throwable current = unwrap(error);
-    if (!(current instanceof ErrorResponseException response)) return false;
+    if (!(current instanceof ErrorResponseException)) return false;
+    ErrorResponseException response = (ErrorResponseException) current;
     String code = response.errorResponse().code();
     return "NoSuchKey".equals(code) || "NoSuchObject".equals(code) || "NotFound".equals(code);
   }
@@ -364,7 +366,7 @@ public final class MinioStorageProvider
 
   private static FileBridgeException fail(String message, Throwable error) {
     Throwable cause = unwrap(error);
-    if (cause instanceof FileBridgeException fileBridgeException) return fileBridgeException;
+    if (cause instanceof FileBridgeException) return (FileBridgeException) cause;
     return new FileBridgeException(FileBridgeErrorCode.STORAGE_FAILURE, message, cause);
   }
 

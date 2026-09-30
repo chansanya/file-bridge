@@ -1,5 +1,7 @@
 # FileBridge
 
+> **JDK 8 兼容分支**：当前分支面向遗留 Java 8 / Spring Boot 2.7.18 项目。现代 Java 17 / Spring Boot 4 实现请使用 `main` 分支。
+
 FileBridge 是一个可嵌入 Spring Boot 的通用文件服务组件，提供普通上传、分片续传、授权范围内秒传、本地及云对象存储适配。
 
 ## 当前能力
@@ -18,11 +20,11 @@ FileBridge 是一个可嵌入 Spring Boot 的通用文件服务组件，提供�
 
 | 项目 | 版本或要求 |
 | --- | --- |
-| Java | 17 |
-| Spring Boot | 4.1.1 |
-| Maven | 3.9.16，仓库已提供 Wrapper |
+| Java | 8 或更高版本 |
+| Spring Boot | 2.7.18 |
+| Maven | 3.6.3 或更高版本，仓库已提供 Wrapper |
 | MySQL | 8.4 LTS |
-| 项目版本 | `0.1.0-SNAPSHOT` |
+| 项目版本 | `0.1.0-jdk8-SNAPSHOT`（JDK 8 兼容分支） |
 
 ## 接入前必须理解
 

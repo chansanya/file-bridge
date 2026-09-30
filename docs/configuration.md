@@ -172,7 +172,7 @@ file-bridge:
 <dependency>
   <groupId>io.github.chansan</groupId>
   <artifactId>file-bridge-storage-minio</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0-jdk8-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -200,7 +200,7 @@ file-bridge:
 <dependency>
   <groupId>io.github.chansan</groupId>
   <artifactId>file-bridge-storage-aliyun</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0-jdk8-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -228,7 +228,7 @@ file-bridge:
 <dependency>
   <groupId>io.github.chansan</groupId>
   <artifactId>file-bridge-storage-tencent</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0-jdk8-SNAPSHOT</version>
 </dependency>
 ```
 

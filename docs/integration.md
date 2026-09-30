@@ -8,8 +8,8 @@
 
 | 技术栈 | 版本要求 | 说明 |
 | --- | --- | --- |
-| **Java** | 17 或更高版本 | 支持 Record 与高级并发特性 |
-| **Spring Boot** | 3.x 或 4.x | 组件基于 Spring 自动装配契约 |
+| **Java** | 8 或更高版本 | 领域模型已使用 Java 8 POJO 实现 |
+| **Spring Boot** | 2.7.18 | 使用 `javax.servlet` 与 Spring Framework 5.3 |
 | **数据库** | MySQL 5.7 ~ 8.4 LTS | 标准 SQL 语法兼容 |
 | **前端** | Vue 3 + TypeScript | 支持任意构建工具（Vite / Webpack） |
 
@@ -24,7 +24,7 @@
 <dependency>
   <groupId>io.github.chansan</groupId>
   <artifactId>file-bridge-spring-boot-starter</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0-jdk8-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -34,19 +34,19 @@
 <dependency>
   <groupId>io.github.chansan</groupId>
   <artifactId>file-bridge-storage-minio</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0-jdk8-SNAPSHOT</version>
 </dependency>
 <!-- 阿里云 OSS -->
 <dependency>
   <groupId>io.github.chansan</groupId>
   <artifactId>file-bridge-storage-aliyun</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0-jdk8-SNAPSHOT</version>
 </dependency>
 <!-- 腾讯云 COS -->
 <dependency>
   <groupId>io.github.chansan</groupId>
   <artifactId>file-bridge-storage-tencent</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0-jdk8-SNAPSHOT</version>
 </dependency>
 ```
 
@@ -247,6 +247,6 @@ onMounted(loadData);
    产物会自动打包并注入到后端的 `example/src/main/resources/static/` 目录下。接着执行：
    ```bash
    ./mvnw clean package -DskipTests -pl example -am
-   java -jar example/target/example-0.1.0-SNAPSHOT.jar
+   java -jar example/target/example-0.1.0-jdk8-SNAPSHOT.jar
    ```
    启动后直接访问 `http://localhost:8080/`，单体 JAR 包自带完整的蓝白控制台，零外部 Web 服务器依赖！

@@ -17,7 +17,7 @@ public final class AliyunOssStorageFactory implements StorageProviderFactory {
    */
   @Override
   public Set<String> types() {
-    return Set.of("aliyun", "aliyun-oss");
+    return new java.util.LinkedHashSet<String>(java.util.Arrays.asList("aliyun", "aliyun-oss"));
   }
 
   @Override
@@ -38,7 +38,8 @@ public final class AliyunOssStorageFactory implements StorageProviderFactory {
    */
   private static String required(Map<String, String> c, String k) {
     String v = c.get(k);
-    if (v == null || v.isBlank()) throw new IllegalArgumentException("Missing Aliyun OSS " + k);
+    if (v == null || v.trim().isEmpty())
+      throw new IllegalArgumentException("Missing Aliyun OSS " + k);
     return v;
   }
 }

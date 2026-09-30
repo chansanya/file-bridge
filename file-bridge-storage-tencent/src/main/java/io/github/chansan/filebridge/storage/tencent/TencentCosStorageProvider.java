@@ -80,7 +80,7 @@ public final class TencentCosStorageProvider
       return new StoredObject(
           new ObjectLocation(id, bucket, r.objectKey()),
           in.count,
-          HexFormat.of().formatHex(d.digest()),
+          io.github.chansan.filebridge.core.util.HexUtils.toHex(d.digest()),
           r.contentType(),
           Instant.now());
     } catch (Exception e) {
@@ -205,7 +205,11 @@ public final class TencentCosStorageProvider
       PartETag tag = client.uploadPart(r).getPartETag();
       if (in.count != length)
         throw new FileBridgeException(FileBridgeErrorCode.INVALID_PART, "Part length mismatch");
-      return new UploadedPart(n, length, HexFormat.of().formatHex(d.digest()), tag.getETag());
+      return new UploadedPart(
+          n,
+          length,
+          io.github.chansan.filebridge.core.util.HexUtils.toHex(d.digest()),
+          tag.getETag());
     } catch (Exception e) {
       throw fail("Tencent COS uploadPart failed", e);
     }
@@ -253,10 +257,11 @@ public final class TencentCosStorageProvider
           parts.stream()
               .sorted(Comparator.comparingInt(UploadedPart::partNumber))
               .map(p -> new PartETag(p.partNumber(), p.providerPartTag()))
-              .toList();
+              .collect(java.util.stream.Collectors.toList());
       client.completeMultipartUpload(
           new CompleteMultipartUploadRequest(bucket, h.objectKey(), h.providerUploadId(), tags));
-      return stat(new ObjectLocation(id, bucket, h.objectKey())).orElseThrow();
+      return stat(new ObjectLocation(id, bucket, h.objectKey()))
+          .orElseThrow(() -> new java.util.NoSuchElementException());
     } catch (Exception e) {
       throw fail("Tencent COS completeMultipart failed", e);
     }
@@ -313,9 +318,10 @@ public final class TencentCosStorageProvider
    * @return 领域异常
    */
   private static FileBridgeException fail(String message, Throwable error) {
-    return error instanceof FileBridgeException fileBridgeException
-        ? fileBridgeException
-        : new FileBridgeException(FileBridgeErrorCode.STORAGE_FAILURE, message, error);
+    if (error instanceof FileBridgeException) {
+      return (FileBridgeException) error;
+    }
+    return new FileBridgeException(FileBridgeErrorCode.STORAGE_FAILURE, message, error);
   }
 
   private static final class Counted extends FilterInputStream {

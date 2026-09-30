@@ -6,22 +6,19 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>4.1.1</version>
+    <version>2.7.18</version>
     <relativePath/>
   </parent>
 
   <groupId>io.github.chansan.example</groupId>
   <artifactId>example</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.1.0-jdk8-SNAPSHOT</version>
   <name>Example</name>
   <description>模拟独立业务工程接入 FileBridge Starter</description>
 
   <properties>
-    <java.version>17</java.version>
-    <file-bridge.version>0.1.0-SNAPSHOT</file-bridge.version>
-    <google-java-format.version>1.25.2</google-java-format.version>
-    <sortpom.version>4.0.0</sortpom.version>
-    <spotless.version>3.10.3</spotless.version>
+    <java.version>8</java.version>
+    <file-bridge.version>0.1.0-jdk8-SNAPSHOT</file-bridge.version>
   </properties>
 
   <dependencies>
@@ -41,20 +38,15 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-validation</artifactId>
     </dependency>
-    <!-- 提供 Spring Boot Flyway 自动配置与数据库迁移能力。 -->
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-flyway</artifactId>
-    </dependency>
-    <!-- 为 Flyway 提供 MySQL 数据库方言和迁移支持。 -->
+    <!-- Spring Boot 2.7 使用 Flyway Core 自动执行数据库迁移。 -->
     <dependency>
       <groupId>org.flywaydb</groupId>
-      <artifactId>flyway-mysql</artifactId>
+      <artifactId>flyway-core</artifactId>
     </dependency>
     <!-- MySQL JDBC 驱动，仅在示例运行时连接数据库。 -->
     <dependency>
-      <groupId>com.mysql</groupId>
-      <artifactId>mysql-connector-j</artifactId>
+      <groupId>mysql</groupId>
+      <artifactId>mysql-connector-java</artifactId>
       <scope>runtime</scope>
     </dependency>
   </dependencies>
@@ -65,70 +57,6 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
-      </plugin>
-      <!-- 示例工程不继承 FileBridge Parent，因此独立声明 POM 格式检查。 -->
-      <plugin>
-        <groupId>com.github.ekryd.sortpom</groupId>
-        <artifactId>sortpom-maven-plugin</artifactId>
-        <version>${sortpom.version}</version>
-        <configuration>
-          <!-- 不生成 pom.xml.bak 备份文件。 -->
-          <createBackupFile>false</createBackupFile>
-          <!-- 空元素使用 <tag/> 简写。 -->
-          <expandEmptyElements>false</expandEmptyElements>
-          <!-- 规范根元素 schemaLocation 属性缩进。 -->
-          <indentAttribute>schemaLocation</indentAttribute>
-          <!-- 保留用于区分配置区块的单个空行。 -->
-          <keepBlankLines>true</keepBlankLines>
-          <!-- 格式不正确时终止构建。 -->
-          <verifyFail>stop</verifyFail>
-          <!-- 严格检查元素顺序与空白格式。 -->
-          <verifyFailOn>strict</verifyFailOn>
-        </configuration>
-        <executions>
-          <execution>
-            <id>sort-pom-check</id>
-            <goals>
-              <!-- 只验证 POM，不在构建过程中偷偷改文件。 -->
-              <goal>verify</goal>
-            </goals>
-            <!-- 编译前执行 POM 检查。 -->
-            <phase>validate</phase>
-          </execution>
-        </executions>
-      </plugin>
-      <!-- 示例工程独立执行与主工程一致的 Java 格式检查。 -->
-      <plugin>
-        <groupId>com.diffplug.spotless</groupId>
-        <artifactId>spotless-maven-plugin</artifactId>
-        <version>${spotless.version}</version>
-        <configuration>
-          <!-- 只处理 Java 源文件，不改动资源文件和生成文件。 -->
-          <java>
-            <!-- 选择 Google Java Format 作为确定性格式化引擎。 -->
-            <googleJavaFormat>
-              <!-- 固定 Google Java Format 版本。 -->
-              <version>${google-java-format.version}</version>
-            </googleJavaFormat>
-            <!-- 删除未使用 import。 -->
-            <removeUnusedImports/>
-            <!-- 删除行尾空白。 -->
-            <trimTrailingWhitespace/>
-            <!-- 保证文件末尾存在换行。 -->
-            <endWithNewline/>
-          </java>
-        </configuration>
-        <executions>
-          <execution>
-            <id>spotless-check</id>
-            <goals>
-              <!-- 校验源码格式；自动修复使用 spotless:apply。 -->
-              <goal>check</goal>
-            </goals>
-            <!-- 编译前执行格式检查。 -->
-            <phase>validate</phase>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>

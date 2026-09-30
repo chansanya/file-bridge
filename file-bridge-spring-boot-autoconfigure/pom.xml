@@ -5,7 +5,7 @@
   <parent>
     <groupId>io.github.chansan</groupId>
     <artifactId>file-bridge-parent</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.0-jdk8-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
   <artifactId>file-bridge-spring-boot-autoconfigure</artifactId>
@@ -46,10 +46,10 @@
       <artifactId>spring-boot-configuration-processor</artifactId>
       <optional>true</optional>
     </dependency>
-    <!-- 声明配置和扩展参数校验所需的 Jakarta Validation API。 -->
+    <!-- 声明配置和扩展参数校验所需的 Javax Validation API。 -->
     <dependency>
-      <groupId>jakarta.validation</groupId>
-      <artifactId>jakarta.validation-api</artifactId>
+      <groupId>javax.validation</groupId>
+      <artifactId>validation-api</artifactId>
     </dependency>
   </dependencies>
 </project>

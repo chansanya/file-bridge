@@ -1,8 +1,8 @@
 package io.github.chansan.example.web;
 
-import jakarta.servlet.*;
-import jakarta.servlet.http.*;
 import java.io.IOException;
+import javax.servlet.*;
+import javax.servlet.http.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,6 +46,6 @@ public final class ApiLoggingFilter implements Filter {
   }
 
   private static String valueOrDash(String value) {
-    return value == null || value.isBlank() ? "-" : value;
+    return value == null || value.trim().isEmpty() ? "-" : value;
   }
 }

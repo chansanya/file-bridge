@@ -48,7 +48,10 @@ public final class JdbcUploadRepository implements UploadRepository {
   @Override
   public Optional<UploadTask> findTask(UUID id) {
     return jdbc
-        .query("SELECT * FROM fb_upload_task WHERE id=:id", Map.of("id", id.toString()), TASK)
+        .query(
+            "SELECT * FROM fb_upload_task WHERE id=:id",
+            JdbcParameters.of("id", id.toString()),
+            TASK)
         .stream()
         .findFirst();
   }
@@ -64,7 +67,7 @@ public final class JdbcUploadRepository implements UploadRepository {
     return jdbc.query(
         "SELECT * FROM fb_upload_part WHERE upload_id=:id AND status='COMPLETED' ORDER BY"
             + " part_number",
-        Map.of("id", id.toString()),
+        JdbcParameters.of("id", id.toString()),
         PART);
   }
 
@@ -98,11 +101,11 @@ public final class JdbcUploadRepository implements UploadRepository {
           jdbc
               .query(
                   "SELECT * FROM fb_upload_part WHERE upload_id=:u AND part_number=:p",
-                  Map.of("u", p.uploadId().toString(), "p", p.partNumber()),
+                  JdbcParameters.of("u", p.uploadId().toString(), "p", p.partNumber()),
                   PART)
               .stream()
               .findFirst()
-              .orElseThrow();
+              .orElseThrow(() -> new java.util.NoSuchElementException());
       if (old.size() == p.size() && old.sha256().equals(p.sha256())) return old;
       throw new FileBridgeException(
           FileBridgeErrorCode.UPLOAD_PART_CONFLICT,
@@ -124,7 +127,7 @@ public final class JdbcUploadRepository implements UploadRepository {
     return jdbc.update(
             "UPDATE fb_upload_task SET status='UPLOADING',version=version+1,updated_at=:now WHERE"
                 + " id=:id AND status='CREATED' AND version=:version",
-            Map.of("id", id.toString(), "version", version, "now", ts(now)))
+            JdbcParameters.of("id", id.toString(), "version", version, "now", ts(now)))
         == 1;
   }
 
@@ -145,7 +148,7 @@ public final class JdbcUploadRepository implements UploadRepository {
             "UPDATE fb_upload_task SET status='COMPLETING',lease_owner=NULL,lease_until=NULL,"
                 + "next_attempt_at=:now,last_error=NULL,version=version+1,updated_at=:now "
                 + "WHERE id=:id AND status IN ('CREATED','UPLOADING')",
-            Map.of("id", id.toString(), "now", ts(now)))
+            JdbcParameters.of("id", id.toString(), "now", ts(now)))
         == 1;
   }
 
@@ -157,7 +160,8 @@ public final class JdbcUploadRepository implements UploadRepository {
                 + "WHERE id=:id AND status IN ('COMPLETING','VERIFYING') "
                 + "AND (lease_owner IS NULL OR lease_until<:now) "
                 + "AND (next_attempt_at IS NULL OR next_attempt_at<=:now)",
-            Map.of("id", id.toString(), "owner", owner, "until", ts(until), "now", ts(now)))
+            JdbcParameters.of(
+                "id", id.toString(), "owner", owner, "until", ts(until), "now", ts(now)))
         == 1;
   }
 
@@ -174,7 +178,8 @@ public final class JdbcUploadRepository implements UploadRepository {
     return jdbc.update(
             "UPDATE fb_upload_task SET lease_until=:until,updated_at=:now "
                 + "WHERE id=:id AND lease_owner=:owner AND status IN ('COMPLETING','VERIFYING')",
-            Map.of("id", id.toString(), "owner", owner, "until", ts(until), "now", ts(now)))
+            JdbcParameters.of(
+                "id", id.toString(), "owner", owner, "until", ts(until), "now", ts(now)))
         == 1;
   }
 
@@ -182,11 +187,10 @@ public final class JdbcUploadRepository implements UploadRepository {
   public void retryCompletion(
       UUID id, String owner, String error, Instant nextAttemptAt, int maxAttempts, Instant now) {
     jdbc.update(
-        "UPDATE fb_upload_task SET "
-            + "status=CASE WHEN completion_attempts>=:maxAttempts THEN 'FAILED' ELSE 'COMPLETING' END,"
-            + "lease_owner=NULL,lease_until=NULL,next_attempt_at=:nextAttempt,last_error=:error,"
-            + "version=version+1,updated_at=:now "
-            + "WHERE id=:id AND lease_owner=:owner AND status IN ('COMPLETING','VERIFYING')",
+        "UPDATE fb_upload_task SET status=CASE WHEN completion_attempts>=:maxAttempts THEN 'FAILED'"
+            + " ELSE 'COMPLETING' END,"
+            + "lease_owner=NULL,lease_until=NULL,next_attempt_at=:nextAttempt,last_error=:error,version=version+1,updated_at=:now"
+            + " WHERE id=:id AND lease_owner=:owner AND status IN ('COMPLETING','VERIFYING')",
         new MapSqlParameterSource()
             .addValue("id", id.toString())
             .addValue("owner", owner)
@@ -201,7 +205,7 @@ public final class JdbcUploadRepository implements UploadRepository {
     return jdbc.update(
             "UPDATE fb_upload_task SET status='VERIFYING',version=version+1,updated_at=:now WHERE"
                 + " id=:id AND status='COMPLETING' AND lease_owner=:owner",
-            Map.of("id", id.toString(), "owner", owner, "now", ts(now)))
+            JdbcParameters.of("id", id.toString(), "owner", owner, "now", ts(now)))
         == 1;
   }
 
@@ -220,7 +224,8 @@ public final class JdbcUploadRepository implements UploadRepository {
             "UPDATE fb_upload_task SET"
                 + " status='COMPLETED',result_file_id=:file,lease_owner=NULL,lease_until=NULL,version=version+1,updated_at=:now"
                 + " WHERE id=:id AND status='VERIFYING' AND lease_owner=:owner",
-            Map.of("id", id.toString(), "owner", owner, "file", fileId.toString(), "now", ts(now)))
+            JdbcParameters.of(
+                "id", id.toString(), "owner", owner, "file", fileId.toString(), "now", ts(now)))
         == 1;
   }
 
@@ -237,7 +242,7 @@ public final class JdbcUploadRepository implements UploadRepository {
             "UPDATE fb_upload_task SET"
                 + " status='CANCELLED',lease_owner=NULL,lease_until=NULL,version=version+1,updated_at=:now"
                 + " WHERE id=:id AND status IN ('CREATED','UPLOADING')",
-            Map.of("id", id.toString(), "now", ts(now)))
+            JdbcParameters.of("id", id.toString(), "now", ts(now)))
         == 1;
   }
 
@@ -275,7 +280,7 @@ public final class JdbcUploadRepository implements UploadRepository {
             + "AND (lease_owner IS NULL OR lease_until<:now) "
             + "AND (next_attempt_at IS NULL OR next_attempt_at<=:now) ORDER BY updated_at LIMIT "
             + safeLimit(limit),
-        Map.of("now", ts(now)),
+        JdbcParameters.of("now", ts(now)),
         TASK);
   }
 
@@ -292,7 +297,7 @@ public final class JdbcUploadRepository implements UploadRepository {
         "SELECT * FROM fb_upload_task WHERE status IN ('CREATED','UPLOADING') AND expires_at<:now"
             + " ORDER BY expires_at LIMIT "
             + safeLimit(limit),
-        Map.of("now", ts(now)),
+        JdbcParameters.of("now", ts(now)),
         TASK);
   }
 

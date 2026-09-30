@@ -15,17 +15,19 @@ import org.springframework.boot.autoconfigure.*;
 import org.springframework.boot.autoconfigure.condition.*;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /** FileBridge 核心 Spring Boot 自动配置。 */
-@AutoConfiguration(
-    afterName = {
-      "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration",
-      "org.springframework.boot.jdbc.autoconfigure.JdbcTemplateAutoConfiguration",
-      "org.springframework.boot.jdbc.autoconfigure.DataSourceTransactionManagerAutoConfiguration",
-      "org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration"
+@Configuration(proxyBeanMethods = false)
+@AutoConfigureAfter(
+    name = {
+      "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration",
+      "org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration",
+      "org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration",
+      "org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration"
     })
 @EnableConfigurationProperties(FileBridgeProperties.class)
 @ConditionalOnProperty(prefix = "file-bridge", name = "enabled", matchIfMissing = true)
@@ -398,7 +400,7 @@ public class FileBridgeAutoConfiguration {
   }
 
   private static String require(String v, String name) {
-    if (v == null || v.isBlank()) throw new IllegalStateException("Missing storage " + name);
+    if (v == null || v.trim().isEmpty()) throw new IllegalStateException("Missing storage " + name);
     return v;
   }
 }

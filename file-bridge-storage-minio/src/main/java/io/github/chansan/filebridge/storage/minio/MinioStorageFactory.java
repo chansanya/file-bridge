@@ -17,7 +17,7 @@ public final class MinioStorageFactory implements StorageProviderFactory {
    */
   @Override
   public Set<String> types() {
-    return Set.of("minio");
+    return java.util.Collections.singleton("minio");
   }
 
   @Override
@@ -40,7 +40,7 @@ public final class MinioStorageFactory implements StorageProviderFactory {
    */
   private static String required(Map<String, String> c, String k) {
     String v = c.get(k);
-    if (v == null || v.isBlank()) throw new IllegalArgumentException("Missing MinIO " + k);
+    if (v == null || v.trim().isEmpty()) throw new IllegalArgumentException("Missing MinIO " + k);
     return v;
   }
 }
