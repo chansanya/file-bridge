@@ -7,7 +7,7 @@
 | 分支 | Java | Spring Boot | Servlet 命名空间 |
 | --- | --- | --- | --- |
 | `main` | 17+ | 4.x | `jakarta.*` |
-| `codex/jdk8-compat` | 8+ | 2.7.18 | `javax.*` |
+| `jdk8` | 8+ | 2.7.18 | `javax.*` |
 
 两条版本线保持相同的核心 REST 路径、数据库表结构和前端控制台协议，但 Java 二进制产物不能混用。
 
