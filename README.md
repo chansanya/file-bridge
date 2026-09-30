@@ -57,6 +57,7 @@ file-bridge:
 
 ## 快速导航
 
+- [在线文档](https://chansan.github.io/file-bridge/)
 - [完整接入步骤](docs/integration.md)
 - [配置项和存储示例](docs/configuration.md)
 - [REST API](docs/api.md)

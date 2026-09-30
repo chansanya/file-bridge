@@ -10,7 +10,7 @@
 - UUID 使用标准字符串格式
 - 身份来自宿主可信上下文，接口不接受 `tenantId` 和 `ownerId`
 
-本页描述的是独立 [`example`](../example) 工程提供的参考接口。Starter 本身不注册 REST Controller。
+本页描述的是独立 `example` 工程提供的参考接口。Starter 本身不注册 REST Controller。
 
 示例路径配置：
 

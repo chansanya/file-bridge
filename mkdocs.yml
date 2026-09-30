@@ -1,0 +1,72 @@
+site_name: FileBridge
+site_description: FileBridge 是可嵌入 Spring Boot 的通用文件服务组件，提供普通上传、分片续传、授权秒传、Range 下载和多存储适配。
+site_url: https://chansan.github.io/file-bridge/
+repo_name: chansan/file-bridge
+repo_url: https://github.com/chansan/file-bridge
+
+theme:
+  name: material
+  language: zh
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - scheme: default
+      primary: blue
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: 切换到深色模式
+    - scheme: slate
+      primary: blue
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: 切换到浅色模式
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+nav:
+  - 首页: index.md
+  - 快速开始: integration.md
+  - REST API: api.md
+  - 配置参考: configuration.md
+  - 架构说明: architecture.md
+  - 控制台: example.md
+  - 前端移植: console.md
+  - 数据库:
+      - 迁移脚本: database/README.md
