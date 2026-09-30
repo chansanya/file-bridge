@@ -1,8 +1,8 @@
 site_name: FileBridge
 site_description: FileBridge 是可嵌入 Spring Boot 的通用文件服务组件，提供普通上传、分片续传、授权秒传、Range 下载和多存储适配。
-site_url: https://chansan.github.io/file-bridge/
-repo_name: chansan/file-bridge
-repo_url: https://github.com/chansan/file-bridge
+site_url: https://chansanya.github.io/file-bridge/
+repo_name: chansanya/file-bridge
+repo_url: https://github.com/chansanya/file-bridge
 
 theme:
   name: material
